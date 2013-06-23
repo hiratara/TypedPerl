@@ -39,3 +39,21 @@ eval1 _ = Nothing
 
 eval :: Term -> Term
 eval t = maybe t eval (eval1 t)
+
+evalB :: Term -> Term
+evalB t | isNumericVal t = t
+evalB t@(TmIf _ t1 t2 t3) | isNumericVal result = result
+  where result = case evalB t1 of
+          TmTrue _  -> evalB t2
+          TmFalse _ -> evalB t3
+          _ -> t
+evalB (TmSucc _ t) | isNumericVal v = TmSucc dummyInfo v
+  where v = evalB t
+evalB t@(TmPred _ t1) = case t' of TmZero _ -> TmZero dummyInfo
+                                   TmSucc _ t2 | isNumericVal t2 -> t2
+                                   _ -> t
+  where t' = evalB t1
+evalB t@(TmIsZero _ t1) = case t1' of TmZero _ -> TmTrue dummyInfo
+                                      TmSucc _ t2 | isNumericVal t2 -> TmFalse dummyInfo
+                                      _ -> t
+  where t1' = evalB t1
