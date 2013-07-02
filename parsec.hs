@@ -29,11 +29,11 @@ parserTerm = do
 
 parserOp :: PerlParser
 parserOp = do
-  t1 <- parserImplicitVar <|> parserInt
+  t1 <- parserSub <|> parserImplicitVar <|> parserInt
   spaces
   op <- oneOf "+-*/"
   spaces
-  t2 <- parserImplicitVar <|> parserInt
+  t2 <- parserTerm
   return (PerlOp (op:"") t1 t2)
 
 parserImplicitVar :: PerlParser
