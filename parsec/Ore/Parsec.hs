@@ -1,4 +1,4 @@
-module Ore.Perlsec where
+module Ore.Parsec where
 import Data.Char
 import Text.Parsec
 import Ore.Types
@@ -31,7 +31,7 @@ parserOp = do
 parserImplicitVar :: PerlParser
 parserImplicitVar = do
   string "$_[0]"
-  return (PerlVar VarSubImplicit TypeUnknown)
+  return (PerlVar VarSubImplicit (TypeVar TypeUnknown))
 
 parserInt :: PerlParser
 parserInt = do
@@ -59,11 +59,3 @@ perlParser = parserTerm
 
 parsePerl :: String -> Either ParseError PerlAST
 parsePerl source = runParser perlParser PerlState [] source
-
-sample :: String
-sample = "sub { $_[0] + 1 }"
-
-{-
-*Perlsec> ((either show showPerlAST) . parsePerl) sample
-"sub { ($_[0] + 1) }"
--}

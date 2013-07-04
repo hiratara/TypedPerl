@@ -1,19 +1,25 @@
 module Ore.Types (
+  PerlTypeVars (..),
   PerlType (..),
   PerlVars (..),
   PerlAST (..),
   showPerlVars, showPerlAST
   ) where
 
-data PerlType =
+data PerlTypeVars =
   TypeUnknown
+  | TypeNamed String
+  deriving (Show, Eq)
+
+data PerlType =
+  TypeVar PerlTypeVars
   | TypeInt
   | TypeArrow PerlType PerlType
   deriving (Show, Eq)
 
 data PerlVars =
   VarSubImplicit
-  deriving Show
+  deriving (Show, Eq)
 
 data PerlAST =
   PerlInt Integer
