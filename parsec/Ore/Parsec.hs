@@ -8,6 +8,15 @@ type PerlParser = Parsec String PerlState PerlAST
 
 data PerlState = PerlState
 
+parserBlock :: PerlParser
+parserBlock = do
+  t1 <- parserTerm
+  let next = do
+        (char ';' >> spaces) <|> eof
+        t2 <- parserBlock
+        return (PerlSeq t1 t2)
+  next <|> return t1
+
 parserTerminalTerm :: PerlParser
 parserTerminalTerm = do
   ret <- parserSub <|> parserImplicitVar <|> parserInt
@@ -42,7 +51,7 @@ parserInt = do
 parserSub :: PerlParser
 parserSub = do
   string "sub" >> spaces >> char '{' >> spaces
-  content <- parserTerm
+  content <- parserBlock
   char '}'
   return (PerlAbstract content)
 
@@ -55,7 +64,7 @@ parserCallSub = do
   return (PerlApp t1 t2)
 
 perlParser :: PerlParser
-perlParser = parserTerm
+perlParser = parserBlock
 
 parsePerl :: String -> Either ParseError PerlAST
 parsePerl source = runParser perlParser PerlState [] source

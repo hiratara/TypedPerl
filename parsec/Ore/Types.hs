@@ -28,6 +28,7 @@ data PerlAST =
   | PerlOp String PerlAST PerlAST
   | PerlAbstract PerlAST
   | PerlApp PerlAST PerlAST
+  | PerlSeq PerlAST PerlAST
   deriving Show
 
 showPerlTypeVars :: PerlTypeVars -> String
@@ -52,3 +53,4 @@ showPerlAST (PerlOp op t1 t2) = "(" ++ showPerlAST t1 ++ " "
 showPerlAST (PerlAbstract t) = "sub {" ++ " " ++ showPerlAST t ++ " }"
 showPerlAST (PerlApp t1 t2) = "(" ++ showPerlAST t1 ++
                               ")->(" ++ showPerlAST t2 ++ ")"
+showPerlAST (PerlSeq t1 t2) = showPerlAST t1 ++ "; " ++ showPerlAST t2

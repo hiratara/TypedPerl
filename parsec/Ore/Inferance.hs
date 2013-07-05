@@ -27,14 +27,13 @@ buildConstraint' ctx (PerlVar v ty)
 buildConstraint' ctx (PerlOp _ t1 t2) = do
   (ty1, c1) <- buildConstraint' ctx t1
   (ty2, c2) <- buildConstraint' ctx t2
-  return (ty1, (ty1, ty2) : c1 ++ c2)
+  return (TypeInt, (ty1, TypeInt) : (ty2, TypeInt) : c1 ++ c2)
 buildConstraint' ctx (PerlAbstract t) = do
   name <- gets head
   modify tail
   let newType = TypeVar (TypeNamed name)
   (ty, c) <- buildConstraint' ((VarSubImplicit, newType):ctx) t
   return (TypeArrow newType ty, c)
-
 buildConstraint' ctx (PerlApp t1 t2) = do
     name <- gets head
     modify tail
@@ -43,6 +42,10 @@ buildConstraint' ctx (PerlApp t1 t2) = do
     let newType = TypeVar . TypeNamed $ name
     let c = (ty1, TypeArrow ty2 newType)
     return (newType, c : c2 ++ c1)
+buildConstraint' ctx (PerlSeq t1 t2) = do
+    (_, c1) <- buildConstraint' ctx t1
+    (ty, c2) <- buildConstraint' ctx t2
+    return (ty, c2 ++ c1)
 
 type TypeError = String
 
