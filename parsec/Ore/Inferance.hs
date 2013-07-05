@@ -47,8 +47,8 @@ buildConstraint' ctx (PerlOp _ t1 t2) = do
 buildConstraint' ctx (PerlAbstract t) = do
   name <- freshName
   let newType = TypeVar (TypeNamed name)
-  (ty, c, ctx') <- buildConstraint' ((VarSubImplicit, newType):ctx) t
-  return (TypeArrow newType ty, c, ctx')
+  (ty, c, _) <- buildConstraint' ((VarSubImplicit, newType):ctx) t
+  return (TypeArrow newType ty, c, ctx)
 buildConstraint' ctx (PerlApp t1 t2) = do
     name <- freshName
     (ty1, c1, ctx') <- buildConstraint' ctx t1
