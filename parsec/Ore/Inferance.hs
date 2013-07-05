@@ -8,23 +8,30 @@ import Debug.Trace
 
 type Constraint = [(PerlType, PerlType)]
 type Context = [(PerlVars, PerlType)]
+data TypeContext = TypeContext {
+  names :: TypeNames
+  }
 type TypeNames = [String]
+
+freshName :: State TypeContext String
+freshName = do
+  name <- gets (head . names)
+  modify (\s -> s {names = (tail . names) s})
+  return name
 
 typeNames :: TypeNames
 typeNames = map (('a' :) . show) [(1 :: Integer)..]
 
 buildConstraint :: PerlAST -> (PerlType, Constraint)
 buildConstraint t = (ty, cns)
-  where (ty, cns, _) = evalState (buildConstraint' [] t) typeNames
+  where (ty, cns, _) = evalState (buildConstraint' [] t)
+                         (TypeContext {names = typeNames})
 
 buildConstraint' :: Context -> PerlAST
-                    -> State TypeNames (PerlType, Constraint, Context)
+                    -> State TypeContext (PerlType, Constraint, Context)
 buildConstraint' ctx (PerlDeclare v ty t) = do
   ty' <- if ty == TypeVar TypeUnknown
-             then do
-                 name <- gets head
-                 modify tail
-                 return (TypeVar (TypeNamed name))
+             then freshName >>= return . TypeVar . TypeNamed
              else return ty
   (ty'', cns, ctx') <- buildConstraint' ctx t
   return (TypeUnit ,(ty', ty''):cns, ((v, ty'):ctx'))
@@ -38,14 +45,12 @@ buildConstraint' ctx (PerlOp _ t1 t2) = do
   (ty2, c2, ctx'') <- buildConstraint' ctx' t2
   return (TypeInt, (ty1, TypeInt) : (ty2, TypeInt) : c1 ++ c2, ctx'')
 buildConstraint' ctx (PerlAbstract t) = do
-  name <- gets head
-  modify tail
+  name <- freshName
   let newType = TypeVar (TypeNamed name)
   (ty, c, ctx') <- buildConstraint' ((VarSubImplicit, newType):ctx) t
   return (TypeArrow newType ty, c, ctx')
 buildConstraint' ctx (PerlApp t1 t2) = do
-    name <- gets head
-    modify tail
+    name <- freshName
     (ty1, c1, ctx') <- buildConstraint' ctx t1
     (ty2, c2, ctx'') <- buildConstraint' ctx' t2
     let newType = TypeVar . TypeNamed $ name
