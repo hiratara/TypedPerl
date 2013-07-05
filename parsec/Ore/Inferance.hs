@@ -39,7 +39,11 @@ buildConstraint' ctx (PerlInt _) = return (TypeInt, [], ctx)
 buildConstraint' ctx (PerlVar v) = do
   case lookup v ctx of
     Just ty' -> return (ty', [], ctx)
-    _ -> return (TypeVar TypeUnknown, [], ctx) -- Should report as errors
+    -- Should report as errors
+    _ -> return (tyUnknown, [(tyUnknown,tyUnknown)], ctx)
+  where
+    tyUnknown = TypeVar TypeUnknown
+
 buildConstraint' ctx (PerlOp _ t1 t2) = do
   (ty1, c1, ctx') <- buildConstraint' ctx t1
   (ty2, c2, ctx'') <- buildConstraint' ctx' t2
