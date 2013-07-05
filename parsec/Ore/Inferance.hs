@@ -1,12 +1,12 @@
 module Ore.Inferance (
   infer
   ) where
+import Ore.Substitute
 import Ore.Types
 import Control.Monad.State
 import Debug.Trace
 
 type Constraint = [(PerlType, PerlType)]
-type Substitute = [(PerlTypeVars, PerlType)]
 type Context = [(PerlVars, PerlType)]
 type TypeNames = [String]
 
@@ -89,24 +89,6 @@ substC :: Substitute -> Constraint -> Constraint
 substC subst constr = map (delta substType') constr
   where delta f (a, b) = (f a, f b)
         substType' = substType subst
-
-substType :: Substitute -> PerlType -> PerlType
-substType [] ty = ty
-substType ((tyV', ty'):ss) ty@(TypeVar tyV)
-  | tyV == tyV' = ty'
-  | otherwise   = substType ss ty
-substType _ TypeInt = TypeInt
-substType ss (TypeArrow ty1 ty2) =
-  TypeArrow (substType ss ty1) (substType ss ty2)
-
--- substAST :: Substitute -> PerlAST -> PerlAST
--- substAST _ n@(PerlInt _) = n
--- substAST s (PerlVar v ty) = PerlVar v (substType s ty)
--- substAST s (PerlOp op t1 t2) =
---   PerlOp op (substAST s t1) (substAST s t2)
--- substAST s (PerlAbstract t) = PerlAbstract (substAST s t)
--- substAST s (PerlApp t1 t2) =
---   PerlApp (substAST s t1) (substAST s t2)
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = do
