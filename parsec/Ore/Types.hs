@@ -37,8 +37,8 @@ showPerlTypeVars (TypeNamed x) = x
 showPerlType :: PerlType -> String
 showPerlType (TypeVar tyv) = showPerlTypeVars tyv
 showPerlType TypeInt = "Int"
-showPerlType (TypeArrow ty1 ty2) = showPerlType ty1 ++ " -> "
-                                   ++ showPerlType ty2
+showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
+                                   ++ showPerlType ty2 ++ ")"
 
 showPerlVars :: PerlVars -> String
 showPerlVars VarSubImplicit = "$_[0]"

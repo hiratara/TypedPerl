@@ -44,21 +44,27 @@ buildConstraint' ctx (PerlApp t1 t2) = do
     let c = (ty1, TypeArrow ty2 newType)
     return (newType, c : c2 ++ c1)
 
-unify :: Constraint -> Substitute
-unify [] = []
+type TypeError = String
+
+unify :: Constraint -> Either TypeError Substitute
+unify [] = return []
 unify ((t1, t2):cs)
   | t1 == t2 = unify cs
-  | isTypeVar t1 && isIntVar t2 =
-      (t1var, TypeInt) : unify (substC [(t1var, TypeInt)] cs)
-  | isTypeVar t2 && isIntVar t1 =
-      (t2var, TypeInt) : unify (substC [(t2var, TypeInt)] cs)
-  | isTypeVar t1 && not (typeVar t1 `containedBy` t2) =
-      (t1var, t2) : unify (substC [(t1var, t2)] cs)
-  | isTypeVar t2 && not (typeVar t2 `containedBy` t1) =
-      (t2var, t1) : unify (substC [(t2var, t1)] cs)
+  | isTypeVar t1 && isIntVar t2 = do
+    ss <- unify (substC [(t1var, TypeInt)] cs)
+    return ((t1var, TypeInt) : ss)
+  | isTypeVar t2 && isIntVar t1 = do
+    ss <- unify (substC [(t2var, TypeInt)] cs)
+    return ((t2var, TypeInt) : ss)
+  | isTypeVar t1 && not (typeVar t1 `containedBy` t2) = do
+    ss <- unify (substC [(t1var, t2)] cs)
+    return ((t1var, t2) : ss)
+  | isTypeVar t2 && not (typeVar t2 `containedBy` t1) = do
+    ss <- unify (substC [(t2var, t1)] cs)
+    return ((t2var, t1) : ss)
   | isArrowType t1 && isArrowType t2 =
       unify ((t1from, t2from) : (t1to, t2to) : cs)
-  | otherwise = error "Couldn't find answer"
+  | otherwise = Left "Couldn't find answer"
   where t1var = typeVar t1
         t2var = typeVar t2
         (t1from, t1to) = arrow t1
@@ -102,8 +108,8 @@ substType ss (TypeArrow ty1 ty2) =
 -- substAST s (PerlApp t1 t2) =
 --   PerlApp (substAST s t1) (substAST s t2)
 
-infer :: PerlAST -> (PerlAST, PerlType)
-infer t = (t, substType s t')
-  where
-    (t', c) = buildConstraint t
-    s = unify c
+infer :: PerlAST -> Either TypeError PerlType
+infer t = do
+  let (t', c) = buildConstraint t
+  s <- unify c
+  return (substType s t')
