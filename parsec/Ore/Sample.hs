@@ -10,7 +10,7 @@ showTerm :: String -> String
 showTerm input = case parsePerl input of
   Left e -> show e
   Right ast -> showPerlAST ast ++ "\n"
-               ++ (show . infer $ ast)
+               ++ (showPerlType . snd . infer $ ast)
 
 {-
 *Perlsec> ((either show showPerlAST) . parsePerl) sample
