@@ -12,10 +12,12 @@ parserBlock :: PerlParser
 parserBlock = do
   t1 <- parserTerm
   let next = do
-        (char ';' >> spaces) <|> eof
+        eol
         t2 <- parserBlock
         return (PerlSeq t1 t2)
-  next <|> return t1
+  try next <|> (optional eol >> return t1)
+  where
+    eol = (char ';' >> spaces) <|> eof
 
 parserTerminalTerm :: PerlParser
 parserTerminalTerm = do
