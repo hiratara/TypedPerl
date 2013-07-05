@@ -15,6 +15,7 @@ data PerlTypeVars =
 data PerlType =
   TypeVar PerlTypeVars
   | TypeInt
+  | TypeStr
   | TypeUnit
   | TypeArrow PerlType PerlType
   deriving (Show, Eq)
@@ -27,6 +28,7 @@ data PerlVars =
 data PerlAST =
   PerlDeclare PerlVars PerlType PerlAST
   | PerlInt Integer
+  | PerlStr String
   | PerlVar PerlVars
   | PerlOp String PerlAST PerlAST
   | PerlAbstract PerlAST
@@ -41,6 +43,7 @@ showPerlTypeVars (TypeNamed x) = x
 showPerlType :: PerlType -> String
 showPerlType (TypeVar tyv) = showPerlTypeVars tyv
 showPerlType TypeInt = "Int"
+showPerlType TypeStr = "Str"
 showPerlType TypeUnit = "Unit"
 showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
                                    ++ showPerlType ty2 ++ ")"
@@ -51,6 +54,7 @@ showPerlVars (VarNamed x) = '$' : x
 
 showPerlAST :: PerlAST -> String
 showPerlAST (PerlInt n) = show n
+showPerlAST (PerlStr x) = show x -- This is, though, Haskell's literal
 showPerlAST (PerlVar t) = showPerlVars t
 showPerlAST (PerlDeclare v _ t) = "my " ++ (showPerlVars v) ++
                                    " = (" ++ showPerlAST t ++ ")"

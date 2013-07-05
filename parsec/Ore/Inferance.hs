@@ -35,6 +35,7 @@ buildConstraint' ctx (PerlDeclare v ty t) = do
              else return ty
   (ty'', cns, ctx') <- buildConstraint' ctx t
   return (TypeUnit ,(ty', ty''):cns, ((v, ty'):ctx'))
+buildConstraint' ctx (PerlStr _) = return (TypeStr, [], ctx)
 buildConstraint' ctx (PerlInt _) = return (TypeInt, [], ctx)
 buildConstraint' ctx (PerlVar v) = do
   case lookup v ctx of
@@ -78,6 +79,12 @@ unify ((t1, t2):cs)
   | isTypeVar t2 && isIntVar t1 = do
     ss <- unify (substC [(t2var, TypeInt)] cs)
     return ((t2var, TypeInt) : ss)
+  | isTypeVar t1 && isStrVar t2 = do
+    ss <- unify (substC [(t1var, TypeStr)] cs)
+    return ((t1var, TypeStr) : ss)
+  | isTypeVar t2 && isStrVar t1 = do
+    ss <- unify (substC [(t2var, TypeStr)] cs)
+    return ((t2var, TypeStr) : ss)
   | isTypeVar t1 && isUnitVar t2 = do
     ss <- unify (substC [(t1var, TypeUnit)] cs)
     return ((t1var, TypeUnit) : ss)
@@ -105,6 +112,8 @@ unify ((t1, t2):cs)
         isArrowType _ = False
         isIntVar TypeInt = True
         isIntVar _ = False
+        isStrVar TypeStr = True
+        isStrVar _ = False
         isUnitVar TypeUnit = True
         isUnitVar _ = False
         typeVar (TypeVar t) = t
@@ -116,6 +125,7 @@ unify ((t1, t2):cs)
         containedBy v (TypeArrow t1' t2') =
           v `containedBy` t1' || v `containedBy` t2'
         containedBy _ TypeInt = False
+        containedBy _ TypeStr = False
 
 substC :: Substitute -> Constraint -> Constraint
 substC subst constr = map (delta substType') constr

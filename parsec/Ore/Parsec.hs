@@ -22,7 +22,8 @@ parserBlock = do
 parserTerminalTerm :: PerlParser
 parserTerminalTerm = do
   ret <- parserSub <|> parserMy <|>
-         (try parserImplicitVar <|> parserVars) <|> parserInt
+         (try parserImplicitVar <|> parserVars) <|>
+         parserInt <|> parserStr
   spaces
   return ret
 
@@ -72,6 +73,13 @@ parserInt = do
   digits <- many1 digit
   let n = foldl (\x d -> 10 * x + toInteger (digitToInt d)) 0 digits
   return (PerlInt n)
+
+parserStr :: PerlParser
+parserStr = do
+  char '"'
+  str <- many (noneOf "\"") -- TODO
+  char '"'
+  return (PerlStr str)
 
 parserSub :: PerlParser
 parserSub = do
