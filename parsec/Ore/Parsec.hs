@@ -19,7 +19,8 @@ parserBlock = do
 
 parserTerminalTerm :: PerlParser
 parserTerminalTerm = do
-  ret <- parserSub <|> parserImplicitVar <|> parserInt
+  ret <- parserSub <|> parserMy <|>
+         (try parserImplicitVar <|> parserVars) <|> parserInt
   spaces
   return ret
 
@@ -28,6 +29,15 @@ parserTerm = do
   term <- try parserCallSub <|> try parserOp <|> parserTerminalTerm
   spaces
   return term
+
+parserMy :: PerlParser
+parserMy = do
+  string "my" >> spaces
+  (PerlVar v) <- parserVars
+  spaces
+  char '=' >> spaces
+  t <- parserTerminalTerm
+  return (PerlDeclare v (TypeVar TypeUnknown) t)
 
 parserOp :: PerlParser
 parserOp = do
@@ -40,7 +50,20 @@ parserOp = do
 parserImplicitVar :: PerlParser
 parserImplicitVar = do
   string "$_[0]"
-  return (PerlVar VarSubImplicit (TypeVar TypeUnknown))
+  return (PerlVar VarSubImplicit)
+
+alphabetChars :: String
+alphabetChars = '_' : [toEnum (fromEnum 'a' + n) | n <- [1 .. 26]]
+
+digitChars :: String
+digitChars = map (head . show) [(0 :: Int) .. 9]
+
+parserVars :: PerlParser
+parserVars = do
+  char '$'
+  n <- oneOf alphabetChars
+  ns <- many (oneOf (alphabetChars ++ digitChars))
+  return (PerlVar (VarNamed (n:ns)))
 
 parserInt :: PerlParser
 parserInt = do

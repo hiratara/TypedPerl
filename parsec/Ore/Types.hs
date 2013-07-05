@@ -15,16 +15,19 @@ data PerlTypeVars =
 data PerlType =
   TypeVar PerlTypeVars
   | TypeInt
+  | TypeUnit
   | TypeArrow PerlType PerlType
   deriving (Show, Eq)
 
 data PerlVars =
   VarSubImplicit
+  | VarNamed String
   deriving (Show, Eq)
 
 data PerlAST =
-  PerlInt Integer
-  | PerlVar PerlVars PerlType
+  PerlDeclare PerlVars PerlType PerlAST
+  | PerlInt Integer
+  | PerlVar PerlVars
   | PerlOp String PerlAST PerlAST
   | PerlAbstract PerlAST
   | PerlApp PerlAST PerlAST
@@ -38,15 +41,19 @@ showPerlTypeVars (TypeNamed x) = x
 showPerlType :: PerlType -> String
 showPerlType (TypeVar tyv) = showPerlTypeVars tyv
 showPerlType TypeInt = "Int"
+showPerlType TypeUnit = "Unit"
 showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
                                    ++ showPerlType ty2 ++ ")"
 
 showPerlVars :: PerlVars -> String
 showPerlVars VarSubImplicit = "$_[0]"
+showPerlVars (VarNamed x) = '$' : x
 
 showPerlAST :: PerlAST -> String
 showPerlAST (PerlInt n) = show n
-showPerlAST (PerlVar t _) = showPerlVars t
+showPerlAST (PerlVar t) = showPerlVars t
+showPerlAST (PerlDeclare v _ t) = "my " ++ (showPerlVars v) ++
+                                   " = (" ++ showPerlAST t ++ ")"
 showPerlAST (PerlOp op t1 t2) = "(" ++ showPerlAST t1 ++ " "
                                 ++ op ++ " " ++
                                 showPerlAST t2 ++ ")"

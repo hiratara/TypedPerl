@@ -14,44 +14,54 @@ typeNames :: TypeNames
 typeNames = map (('a' :) . show) [(1 :: Integer)..]
 
 buildConstraint :: PerlAST -> (PerlType, Constraint)
-buildConstraint t = evalState (buildConstraint' [] t) typeNames
+buildConstraint t = (ty, cns)
+  where (ty, cns, _) = evalState (buildConstraint' [] t) typeNames
 
 buildConstraint' :: Context -> PerlAST
-                    -> State TypeNames (PerlType, Constraint)
-buildConstraint' _ (PerlInt _) = return (TypeInt, [])
-buildConstraint' ctx (PerlVar v ty)
-  | ty == TypeVar TypeUnknown = do
-    let (Just ty') = lookup v ctx
-    return (ty', [])
-  | otherwise = return (ty, [])
+                    -> State TypeNames (PerlType, Constraint, Context)
+buildConstraint' ctx (PerlDeclare v ty t) = do
+  ty' <- if ty == TypeVar TypeUnknown
+             then do
+                 name <- gets head
+                 modify tail
+                 return (TypeVar (TypeNamed name))
+             else return ty
+  (ty'', cns, ctx') <- buildConstraint' ctx t
+  return (TypeUnit ,(ty', ty''):cns, ((v, ty'):ctx'))
+buildConstraint' ctx (PerlInt _) = return (TypeInt, [], ctx)
+buildConstraint' ctx (PerlVar v) = do
+  case lookup v ctx of
+    Just ty' -> return (ty', [], ctx)
+    _ -> return (TypeVar TypeUnknown, [], ctx) -- Should report as errors
 buildConstraint' ctx (PerlOp _ t1 t2) = do
-  (ty1, c1) <- buildConstraint' ctx t1
-  (ty2, c2) <- buildConstraint' ctx t2
-  return (TypeInt, (ty1, TypeInt) : (ty2, TypeInt) : c1 ++ c2)
+  (ty1, c1, ctx') <- buildConstraint' ctx t1
+  (ty2, c2, ctx'') <- buildConstraint' ctx' t2
+  return (TypeInt, (ty1, TypeInt) : (ty2, TypeInt) : c1 ++ c2, ctx'')
 buildConstraint' ctx (PerlAbstract t) = do
   name <- gets head
   modify tail
   let newType = TypeVar (TypeNamed name)
-  (ty, c) <- buildConstraint' ((VarSubImplicit, newType):ctx) t
-  return (TypeArrow newType ty, c)
+  (ty, c, ctx') <- buildConstraint' ((VarSubImplicit, newType):ctx) t
+  return (TypeArrow newType ty, c, ctx')
 buildConstraint' ctx (PerlApp t1 t2) = do
     name <- gets head
     modify tail
-    (ty1, c1) <- buildConstraint' ctx t1
-    (ty2, c2) <- buildConstraint' ctx t2
+    (ty1, c1, ctx') <- buildConstraint' ctx t1
+    (ty2, c2, ctx'') <- buildConstraint' ctx' t2
     let newType = TypeVar . TypeNamed $ name
     let c = (ty1, TypeArrow ty2 newType)
-    return (newType, c : c2 ++ c1)
+    return (newType, c : c2 ++ c1, ctx'')
 buildConstraint' ctx (PerlSeq t1 t2) = do
-    (_, c1) <- buildConstraint' ctx t1
-    (ty, c2) <- buildConstraint' ctx t2
-    return (ty, c2 ++ c1)
+    (_, c1, ctx') <- buildConstraint' ctx t1
+    (ty, c2, ctx'') <- buildConstraint' ctx' t2
+    return (ty, c2 ++ c1, ctx'')
 
 type TypeError = String
 
 unify :: Constraint -> Either TypeError Substitute
 unify [] = return []
 unify ((t1, t2):cs)
+  | isUnknown t1 || isUnknown t2 = Left "not defined"
   | t1 == t2 = unify cs
   | isTypeVar t1 && isIntVar t2 = do
     ss <- unify (substC [(t1var, TypeInt)] cs)
@@ -59,6 +69,12 @@ unify ((t1, t2):cs)
   | isTypeVar t2 && isIntVar t1 = do
     ss <- unify (substC [(t2var, TypeInt)] cs)
     return ((t2var, TypeInt) : ss)
+  | isTypeVar t1 && isUnitVar t2 = do
+    ss <- unify (substC [(t1var, TypeUnit)] cs)
+    return ((t1var, TypeUnit) : ss)
+  | isTypeVar t2 && isUnitVar t1 = do
+    ss <- unify (substC [(t2var, TypeUnit)] cs)
+    return ((t2var, TypeUnit) : ss)
   | isTypeVar t1 && not (typeVar t1 `containedBy` t2) = do
     ss <- unify (substC [(t1var, t2)] cs)
     return ((t1var, t2) : ss)
@@ -74,10 +90,14 @@ unify ((t1, t2):cs)
         (t2from, t2to) = arrow t2
         isTypeVar (TypeVar _) = True
         isTypeVar _ = False
+        isUnknown (TypeVar TypeUnknown) = True
+        isUnknown _ = False
         isArrowType (TypeArrow _ _) = True
         isArrowType _ = False
         isIntVar TypeInt = True
         isIntVar _ = False
+        isUnitVar TypeUnit = True
+        isUnitVar _ = False
         typeVar (TypeVar t) = t
         typeVar t = error $ show t ++ " isn't type variables."
         arrow (TypeArrow ta tb) = (ta, tb)
