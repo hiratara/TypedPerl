@@ -34,9 +34,9 @@ buildConstraint' ctx (PerlDeclare v ty t) = do
              then freshName >>= return . TypeVar . TypeNamed
              else return ty
   (ty'', cns, ctx') <- buildConstraint' ctx t
-  return (TypeUnit ,(ty', ty''):cns, ((v, ty'):ctx'))
-buildConstraint' ctx (PerlStr _) = return (TypeStr, [], ctx)
-buildConstraint' ctx (PerlInt _) = return (TypeInt, [], ctx)
+  return (TypeBuiltin TypeUnit ,(ty', ty''):cns, ((v, ty'):ctx'))
+buildConstraint' ctx (PerlStr _) = return (TypeBuiltin TypeStr, [], ctx)
+buildConstraint' ctx (PerlInt _) = return (TypeBuiltin TypeInt, [], ctx)
 buildConstraint' ctx (PerlVar v) = do
   case lookup v ctx of
     Just ty' -> return (ty', [], ctx)
@@ -48,7 +48,8 @@ buildConstraint' ctx (PerlVar v) = do
 buildConstraint' ctx (PerlOp _ t1 t2) = do
   (ty1, c1, ctx') <- buildConstraint' ctx t1
   (ty2, c2, ctx'') <- buildConstraint' ctx' t2
-  return (TypeInt, (ty1, TypeInt) : (ty2, TypeInt) : c1 ++ c2, ctx'')
+  return (tyInt, (ty1, tyInt) : (ty2, tyInt) : c1 ++ c2, ctx'')
+  where tyInt = TypeBuiltin TypeInt
 buildConstraint' ctx (PerlAbstract t) = do
   name <- freshName
   let newType = TypeVar (TypeNamed name)
@@ -73,24 +74,12 @@ unify [] = return []
 unify ((t1, t2):cs)
   | isUnknown t1 || isUnknown t2 = Left "not defined"
   | t1 == t2 = unify cs
-  | isTypeVar t1 && isIntVar t2 = do
-    ss <- unify (substC [(t1var, TypeInt)] cs)
-    return ((t1var, TypeInt) : ss)
-  | isTypeVar t2 && isIntVar t1 = do
-    ss <- unify (substC [(t2var, TypeInt)] cs)
-    return ((t2var, TypeInt) : ss)
-  | isTypeVar t1 && isStrVar t2 = do
-    ss <- unify (substC [(t1var, TypeStr)] cs)
-    return ((t1var, TypeStr) : ss)
-  | isTypeVar t2 && isStrVar t1 = do
-    ss <- unify (substC [(t2var, TypeStr)] cs)
-    return ((t2var, TypeStr) : ss)
-  | isTypeVar t1 && isUnitVar t2 = do
-    ss <- unify (substC [(t1var, TypeUnit)] cs)
-    return ((t1var, TypeUnit) : ss)
-  | isTypeVar t2 && isUnitVar t1 = do
-    ss <- unify (substC [(t2var, TypeUnit)] cs)
-    return ((t2var, TypeUnit) : ss)
+  | isTypeVar t1 && isBuiltin t2 = do
+    ss <- unify (substC [(t1var, t2)] cs)
+    return ((t1var, t2) : ss)
+  | isTypeVar t2 && isBuiltin t1 = do
+    ss <- unify (substC [(t2var, t1)] cs)
+    return ((t2var, t1) : ss)
   | isTypeVar t1 && not (typeVar t1 `containedBy` t2) = do
     ss <- unify (substC [(t1var, t2)] cs)
     return ((t1var, t2) : ss)
@@ -110,12 +99,8 @@ unify ((t1, t2):cs)
         isUnknown _ = False
         isArrowType (TypeArrow _ _) = True
         isArrowType _ = False
-        isIntVar TypeInt = True
-        isIntVar _ = False
-        isStrVar TypeStr = True
-        isStrVar _ = False
-        isUnitVar TypeUnit = True
-        isUnitVar _ = False
+        isBuiltin (TypeBuiltin _) = True
+        isBuiltin _ = False
         typeVar (TypeVar t) = t
         typeVar t = error $ show t ++ " isn't type variables."
         arrow (TypeArrow ta tb) = (ta, tb)
@@ -124,8 +109,7 @@ unify ((t1, t2):cs)
         containedBy v (TypeVar t) = v == t
         containedBy v (TypeArrow t1' t2') =
           v `containedBy` t1' || v `containedBy` t2'
-        containedBy _ TypeInt = False
-        containedBy _ TypeStr = False
+        containedBy _ (TypeBuiltin _) = False
 
 substC :: Substitute -> Constraint -> Constraint
 substC subst constr = map (delta substType') constr

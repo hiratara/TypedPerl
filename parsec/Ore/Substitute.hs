@@ -9,9 +9,7 @@ substType [] ty = ty
 substType subst@((tyV', ty'):ss) ty@(TypeVar tyV)
   | tyV == tyV' = substType subst ty'
   | otherwise   = substType ss ty
-substType _ TypeInt = TypeInt
-substType _ TypeStr = TypeStr
-substType _ TypeUnit = TypeUnit
+substType _ b@(TypeBuiltin _) = b
 substType ss (TypeArrow ty1 ty2) =
   TypeArrow (substType ss ty1) (substType ss ty2)
 
