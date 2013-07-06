@@ -6,8 +6,8 @@ type Substitute = [(PerlTypeVars, PerlType)]
 
 substType :: Substitute -> PerlType -> PerlType
 substType [] ty = ty
-substType ((tyV', ty'):ss) ty@(TypeVar tyV)
-  | tyV == tyV' = ty'
+substType subst@((tyV', ty'):ss) ty@(TypeVar tyV)
+  | tyV == tyV' = substType subst ty'
   | otherwise   = substType ss ty
 substType _ TypeInt = TypeInt
 substType _ TypeStr = TypeStr
