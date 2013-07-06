@@ -1,0 +1,13 @@
+- 演算の優先順位
+- 配列 (タプルにすべき？関数の引数の型との相性を考える)
+- リファレンス
+- if、unless
+- for、while、next、last
+- 関数定義
+- ビルトイン関数
+- 演算子の型
+- 型コンテキストのState化
+- pretty printの改善
+- 高階型サポート (Maybeとか)
+- Double
+- 多相型 (+はDoubleとInt対応したい)
