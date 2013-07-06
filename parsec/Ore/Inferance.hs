@@ -34,7 +34,7 @@ buildConstraint' ctx (PerlDeclare v ty t) = do
              then freshName >>= return . TypeVar . TypeNamed
              else return ty
   (ty'', cns, ctx') <- buildConstraint' ctx t
-  return (TypeBuiltin TypeUnit ,(ty', ty''):cns, ((v, ty'):ctx'))
+  return (ty' ,(ty', ty''):cns, ((v, ty'):ctx'))
 buildConstraint' ctx (PerlStr _) = return (TypeBuiltin TypeStr, [], ctx)
 buildConstraint' ctx (PerlInt _) = return (TypeBuiltin TypeInt, [], ctx)
 buildConstraint' ctx (PerlVar v) = do

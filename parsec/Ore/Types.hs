@@ -16,7 +16,6 @@ data PerlTypeVars =
 data PerlTypeBuiltins =
   TypeStr
   | TypeInt
-  | TypeUnit
   deriving (Show, Eq)
 
 data PerlType =
@@ -48,7 +47,6 @@ showPerlTypeVars (TypeNamed x) = x
 showPerlTypeBuiltins :: PerlTypeBuiltins -> String
 showPerlTypeBuiltins TypeInt = "Int"
 showPerlTypeBuiltins TypeStr = "Str"
-showPerlTypeBuiltins TypeUnit = "Unit"
 
 showPerlType :: PerlType -> String
 showPerlType (TypeVar tyv) = showPerlTypeVars tyv
