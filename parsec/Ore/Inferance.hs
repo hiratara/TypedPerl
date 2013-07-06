@@ -45,11 +45,11 @@ buildConstraint' ctx (PerlVar v) = do
   where
     tyUnknown = TypeVar TypeUnknown
 
-buildConstraint' ctx (PerlOp _ t1 t2) = do
+buildConstraint' ctx (PerlOp op t1 t2) = do
   (ty1, c1, ctx') <- buildConstraint' ctx t1
   (ty2, c2, ctx'') <- buildConstraint' ctx' t2
-  return (tyInt, (ty1, tyInt) : (ty2, tyInt) : c1 ++ c2, ctx'')
-  where tyInt = TypeBuiltin TypeInt
+  return (returnType op,
+          (ty1, leftType op) : (ty2, rightType op) : c1 ++ c2, ctx'')
 buildConstraint' ctx (PerlAbstract t) = do
   name <- freshName
   let newType = TypeVar (TypeNamed name)

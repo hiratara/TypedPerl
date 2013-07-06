@@ -1,6 +1,8 @@
 module Ore.Parsec where
+import Control.Monad
 import Data.Char
 import Text.Parsec
+import Ore.Builtins
 import Ore.Types
 import Debug.Trace (traceShow)
 
@@ -46,10 +48,12 @@ parserMy = do
 parserOp :: PerlParser
 parserOp = do
   t1 <- parserTerminalTerm
-  op <- oneOf "+-*/"
+  op <- choice (map parseOpSymbol builtinBinops)
   spaces
   t2 <- parserTerm
-  return (PerlOp (op:"") t1 t2)
+  return (PerlOp op t1 t2)
+  where
+    parseOpSymbol b = (string . symbol) b >> return b
 
 parserImplicitVar :: PerlParser
 parserImplicitVar = do

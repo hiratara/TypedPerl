@@ -3,6 +3,7 @@ module Ore.Types (
   PerlTypeBuiltins (..),
   PerlType (..),
   PerlVars (..),
+  PerlBinOp (..),
   PerlAST (..),
   showPerlVars, showPerlAST,
   showPerlTypeVars, showPerlType
@@ -29,12 +30,19 @@ data PerlVars =
   | VarNamed String
   deriving (Show, Eq)
 
+data PerlBinOp = PerlBinOp {
+  symbol :: String
+  , leftType :: PerlType
+  , rightType :: PerlType
+  , returnType :: PerlType
+} deriving Show
+
 data PerlAST =
   PerlDeclare PerlVars PerlType PerlAST
   | PerlInt Integer
   | PerlStr String
   | PerlVar PerlVars
-  | PerlOp String PerlAST PerlAST
+  | PerlOp PerlBinOp PerlAST PerlAST
   | PerlAbstract PerlAST
   | PerlApp PerlAST PerlAST
   | PerlSeq PerlAST PerlAST
@@ -65,7 +73,7 @@ showPerlAST (PerlVar t) = showPerlVars t
 showPerlAST (PerlDeclare v _ t) = "my " ++ (showPerlVars v) ++
                                    " = (" ++ showPerlAST t ++ ")"
 showPerlAST (PerlOp op t1 t2) = "(" ++ showPerlAST t1 ++ " "
-                                ++ op ++ " " ++
+                                ++ symbol op ++ " " ++
                                 showPerlAST t2 ++ ")"
 showPerlAST (PerlAbstract t) = "sub {" ++ " " ++ showPerlAST t ++ " }"
 showPerlAST (PerlApp t1 t2) = "(" ++ showPerlAST t1 ++
