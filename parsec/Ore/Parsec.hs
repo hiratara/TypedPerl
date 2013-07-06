@@ -23,7 +23,8 @@ parserTerminalTerm :: PerlParser
 parserTerminalTerm = do
   ret <- parserSub <|> parserMy <|>
          (try parserImplicitVar <|> parserVars) <|>
-         parserInt <|> parserStr
+         parserInt <|> parserStr <|>
+         between (char '(') (char ')') parserTerm
   spaces
   return ret
 
