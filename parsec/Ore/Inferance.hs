@@ -29,10 +29,8 @@ buildConstraint t = (ty, cns)
                          (TypeContext {names = typeNames, context = []})
 
 buildConstraint' :: PerlAST -> State TypeContext (PerlType, Constraint)
-buildConstraint' (PerlDeclare v ty t) = do
-  ty' <- if ty == TypeVar TypeUnknown
-             then freshName >>= return . TypeVar . TypeNamed
-             else return ty
+buildConstraint' (PerlDeclare v t) = do
+  ty' <- (TypeVar . TypeNamed) `fmap` freshName
   (ty'', cns) <- buildConstraint' t
   modify (\tc -> tc {context = (v, ty'):context tc})
   return (ty' ,(ty', ty''):cns)

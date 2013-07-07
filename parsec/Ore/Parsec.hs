@@ -43,7 +43,7 @@ parserMy = do
   spaces
   char '=' >> spaces
   t <- parserTerminalTerm
-  return (PerlDeclare v (TypeVar TypeUnknown) t)
+  return (PerlDeclare v t)
 
 parserOp :: PerlParser
 parserOp = do

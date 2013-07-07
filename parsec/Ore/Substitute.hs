@@ -14,7 +14,7 @@ substType ss (TypeArrow ty1 ty2) =
   TypeArrow (substType ss ty1) (substType ss ty2)
 
 substAST :: Substitute -> PerlAST -> PerlAST
-substAST s (PerlDeclare _ _ _) = undefined
+substAST s (PerlDeclare _ _) = undefined
 substAST _ n@(PerlInt _) = n
 substAST _ s@(PerlStr _) = s
 substAST _ v@(PerlVar _) = v
