@@ -1,5 +1,5 @@
 module Ore.Substitute (
-  Substitute, substType, substAST
+  Substitute, substType
 ) where
 import Ore.Types
 type Substitute = [(PerlTypeVars, PerlType)]
@@ -12,16 +12,3 @@ substType subst@((tyV', ty'):ss) ty@(TypeVar tyV)
 substType _ b@(TypeBuiltin _) = b
 substType ss (TypeArrow ty1 ty2) =
   TypeArrow (substType ss ty1) (substType ss ty2)
-
-substAST :: Substitute -> PerlAST -> PerlAST
-substAST s (PerlDeclare _ _) = undefined
-substAST _ n@(PerlInt _) = n
-substAST _ s@(PerlStr _) = s
-substAST _ v@(PerlVar _) = v
-substAST s (PerlOp op t1 t2) =
-  PerlOp op (substAST s t1) (substAST s t2)
-substAST s (PerlAbstract t) = PerlAbstract (substAST s t)
-substAST s (PerlApp t1 t2) =
-  PerlApp (substAST s t1) (substAST s t2)
-substAST s (PerlSeq t1 t2) =
-  PerlSeq (substAST s t1) (substAST s t2)
