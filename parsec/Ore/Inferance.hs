@@ -10,6 +10,7 @@ type Constraint = [(PerlType, PerlType)]
 type Context = [(PerlVars, PerlType)]
 data TypeContext = TypeContext {
   names :: TypeNames
+  , context :: Context
   }
 type TypeNames = [String]
 
@@ -24,48 +25,52 @@ typeNames = map (('a' :) . show) [(1 :: Integer)..]
 
 buildConstraint :: PerlAST -> (PerlType, Constraint)
 buildConstraint t = (ty, cns)
-  where (ty, cns, _) = evalState (buildConstraint' [] t)
-                         (TypeContext {names = typeNames})
+  where (ty, cns) = evalState (buildConstraint' t)
+                         (TypeContext {names = typeNames, context = []})
 
-buildConstraint' :: Context -> PerlAST
-                    -> State TypeContext (PerlType, Constraint, Context)
-buildConstraint' ctx (PerlDeclare v ty t) = do
+buildConstraint' :: PerlAST -> State TypeContext (PerlType, Constraint)
+buildConstraint' (PerlDeclare v ty t) = do
   ty' <- if ty == TypeVar TypeUnknown
              then freshName >>= return . TypeVar . TypeNamed
              else return ty
-  (ty'', cns, ctx') <- buildConstraint' ctx t
-  return (ty' ,(ty', ty''):cns, ((v, ty'):ctx'))
-buildConstraint' ctx (PerlStr _) = return (TypeBuiltin TypeStr, [], ctx)
-buildConstraint' ctx (PerlInt _) = return (TypeBuiltin TypeInt, [], ctx)
-buildConstraint' ctx (PerlVar v) = do
+  (ty'', cns) <- buildConstraint' t
+  modify (\tc -> tc {context = (v, ty'):context tc})
+  return (ty' ,(ty', ty''):cns)
+buildConstraint' (PerlStr _) = return (TypeBuiltin TypeStr, [])
+buildConstraint' (PerlInt _) = return (TypeBuiltin TypeInt, [])
+buildConstraint' (PerlVar v) = do
+  ctx <- gets context
   case lookup v ctx of
-    Just ty' -> return (ty', [], ctx)
+    Just ty' -> return (ty', [])
     -- Should report as errors
-    _ -> return (tyUnknown, [(tyUnknown,tyUnknown)], ctx)
+    _ -> return (tyUnknown, [(tyUnknown,tyUnknown)])
   where
     tyUnknown = TypeVar TypeUnknown
 
-buildConstraint' ctx (PerlOp op t1 t2) = do
-  (ty1, c1, ctx') <- buildConstraint' ctx t1
-  (ty2, c2, ctx'') <- buildConstraint' ctx' t2
+buildConstraint' (PerlOp op t1 t2) = do
+  (ty1, c1) <- buildConstraint' t1
+  (ty2, c2) <- buildConstraint' t2
   return (returnType op,
-          (ty1, leftType op) : (ty2, rightType op) : c1 ++ c2, ctx'')
-buildConstraint' ctx (PerlAbstract t) = do
+          (ty1, leftType op) : (ty2, rightType op) : c1 ++ c2)
+buildConstraint' (PerlAbstract t) = do
   name <- freshName
   let newType = TypeVar (TypeNamed name)
-  (ty, c, _) <- buildConstraint' ((VarSubImplicit, newType):ctx) t
-  return (TypeArrow newType ty, c, ctx)
-buildConstraint' ctx (PerlApp t1 t2) = do
+  ctx <- gets context
+  modify (\tc -> tc {context = (VarSubImplicit, newType):ctx})
+  (ty, c) <- (buildConstraint' t)
+  modify (\tc -> tc {context = ctx}) -- restore ctx
+  return (TypeArrow newType ty, c)
+buildConstraint' (PerlApp t1 t2) = do
     name <- freshName
-    (ty1, c1, ctx') <- buildConstraint' ctx t1
-    (ty2, c2, ctx'') <- buildConstraint' ctx' t2
+    (ty1, c1) <- buildConstraint' t1
+    (ty2, c2) <- buildConstraint' t2
     let newType = TypeVar . TypeNamed $ name
     let c = (ty1, TypeArrow ty2 newType)
-    return (newType, c : c2 ++ c1, ctx'')
-buildConstraint' ctx (PerlSeq t1 t2) = do
-    (_, c1, ctx') <- buildConstraint' ctx t1
-    (ty, c2, ctx'') <- buildConstraint' ctx' t2
-    return (ty, c2 ++ c1, ctx'')
+    return (newType, c : c2 ++ c1)
+buildConstraint' (PerlSeq t1 t2) = do
+    (_, c1) <- buildConstraint' t1
+    (ty, c2) <- buildConstraint' t2
+    return (ty, c2 ++ c1)
 
 type TypeError = String
 
