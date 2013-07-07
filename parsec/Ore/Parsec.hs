@@ -10,12 +10,23 @@ type PerlParser = Parsec String PerlState PerlAST
 
 data PerlState = PerlState
 
-parserBlock :: PerlParser
-parserBlock = do
+parserTopSequences :: PerlParser
+parserTopSequences = do
+  t1 <- try parserSubDeclare <|> parserTerm
+  let next = try parserSubDeclare <|> do
+        eol
+        t2 <- parserSequences
+        return (PerlSeq t1 t2)
+  try next <|> (optional eol >> return t1)
+  where
+    eol = (char ';' >> spaces) <|> eof
+
+parserSequences :: PerlParser
+parserSequences = do
   t1 <- parserTerm
   let next = do
         eol
-        t2 <- parserBlock
+        t2 <- parserSequences
         return (PerlSeq t1 t2)
   try next <|> (optional eol >> return t1)
   where
@@ -66,11 +77,14 @@ alphabetChars = '_' : [toEnum (fromEnum 'a' + n) | n <- [1 .. 26]]
 digitChars :: String
 digitChars = map (head . show) [(0 :: Int) .. 9]
 
+perlSymbol :: Parsec String PerlState String
+perlSymbol = many (oneOf (alphabetChars ++ digitChars))
+
 parserVars :: PerlParser
 parserVars = do
   char '$'
   n <- oneOf alphabetChars
-  ns <- many (oneOf (alphabetChars ++ digitChars))
+  ns <- perlSymbol
   return (PerlVar (VarNamed (n:ns)))
 
 parserInt :: PerlParser
@@ -86,12 +100,25 @@ parserStr = do
   char '"'
   return (PerlStr str)
 
+parserBlock :: PerlParser
+parserBlock = do
+  char '{' >> spaces
+  content <- parserSequences
+  char '}' >> spaces
+  return content
+
+parserSubDeclare :: PerlParser
+parserSubDeclare = do
+  string "sub" >> space >> spaces
+  sym <- perlSymbol
+  spaces
+  content <- parserBlock
+  return (PerlDeclare (VarSub sym) (PerlAbstract content))
+
 parserSub :: PerlParser
 parserSub = do
-  string "sub" >> spaces >> char '{' >> spaces
-  content <- parserBlock
-  char '}'
-  return (PerlAbstract content)
+  string "sub" >> spaces
+  PerlAbstract `fmap` parserBlock
 
 parserCallSub :: PerlParser
 parserCallSub = do
@@ -102,7 +129,7 @@ parserCallSub = do
   return (PerlApp t1 t2)
 
 perlParser :: PerlParser
-perlParser = parserBlock
+perlParser = parserTopSequences
 
 parsePerl :: String -> Either ParseError PerlAST
 parsePerl source = runParser perlParser PerlState [] source

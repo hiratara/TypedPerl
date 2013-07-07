@@ -35,6 +35,18 @@ tests = TestList [
       assertEqual "my var" ty (TypeArrow (TypeBuiltin TypeStr)
                                          (TypeBuiltin TypeStr))
   )
+  , (TestCase $ do
+      let Right ty = inferCode "sub x { 1 }"
+      assertBool "TODO" (case ty of
+        TypeArrow (TypeVar _) (TypeBuiltin TypeInt) -> True
+        _ -> False
+        )
+  )
+  , (TestCase $ do
+      let Left e = inferCode "sub x { sub y { 1 }; $_[0] }"
+      putStrLn ('\n':e)
+      assertBool "Don't next sub declare" ((not . null) e)
+  )
   ]
 
 main :: IO ()

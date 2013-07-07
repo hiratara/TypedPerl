@@ -28,6 +28,7 @@ data PerlType =
 data PerlVars =
   VarSubImplicit
   | VarNamed String
+  | VarSub String
   deriving (Show, Eq)
 
 data PerlBinOp = PerlBinOp {
