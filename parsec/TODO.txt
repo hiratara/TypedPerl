@@ -10,7 +10,6 @@
 - for、while、next、last
 - 関数定義
 - ビルトイン関数
-- 型コンテキストのState化
 - pretty printの改善
 - 高階型サポート (Maybeとか)
 - Double
