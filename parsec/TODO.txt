@@ -1,3 +1,11 @@
+- if、unless
+- for、while、next、last
+- 関数定義
+-- 文の(≠式)のためにUnitと同じ振る舞いのUnknownを利用する
+--- PerlではUnkown型の値はないことに注意
+-- Unknownは;の前にのみ許される
+-- 知見が増えた時点で、Unknownを正しい型に変えると良い
+
 - 演算の優先順位
 - 配列 (依存型にしたい)
 --関数の引数@_は型がバラバラなのでタプルのほうが
@@ -6,9 +14,6 @@
 -- これは結局部分型。型推論と相性悪そう
 - 多相型 (+はDoubleとInt対応したい)。idも定義できるようlet多相
 - リファレンス
-- if、unless
-- for、while、next、last
-- 関数定義
 - ビルトイン関数
 - pretty printの改善
 - 高階型サポート (Maybeとか)
