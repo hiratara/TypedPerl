@@ -12,12 +12,17 @@ data PerlState = PerlState
 
 parserTopSequences :: PerlParser
 parserTopSequences = do
-  t1 <- try parserSubDeclare <|> parserTerm
-  let next = try parserSubDeclare <|> do
-        eol
-        t2 <- parserSequences
-        return (PerlSeq t1 t2)
-  try next <|> (optional eol >> return t1)
+  (t1, next) <- (do t <- try parserSubDeclare
+                    return (t, True)
+                ) <|> (
+                 do t' <- parserTerm
+                    m <- optionMaybe eol
+                    return (t', maybe False (const True) m)
+                )
+  if next
+    then try ((try parserSubDeclare <|> parserSequences) >>=
+              return . (PerlSeq t1)) <|> return t1
+    else return t1
   where
     eol = (char ';' >> spaces) <|> eof
 
@@ -113,7 +118,8 @@ parserSubDeclare = do
   sym <- perlSymbol
   spaces
   content <- parserBlock
-  return (PerlDeclare (VarSub sym) (PerlAbstract content))
+  spaces
+  return (PerlSubDeclare (VarSub sym) (PerlAbstract content))
 
 parserSub :: PerlParser
 parserSub = do

@@ -37,10 +37,7 @@ tests = TestList [
   )
   , (TestCase $ do
       let Right ty = inferCode "sub x { 1 }"
-      assertBool "TODO" (case ty of
-        TypeArrow (TypeVar _) (TypeBuiltin TypeInt) -> True
-        _ -> False
-        )
+      assertEqual "decrare is statement" ty (TypeVar TypeUnknown)
   )
   , (TestCase $ do
       let Left e = inferCode "sub x { sub y { 1 }; $_[0] }"

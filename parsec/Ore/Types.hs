@@ -39,7 +39,8 @@ data PerlBinOp = PerlBinOp {
 } deriving Show
 
 data PerlAST =
-  PerlDeclare PerlVars PerlAST
+  PerlSubDeclare PerlVars PerlAST
+  | PerlDeclare PerlVars PerlAST
   | PerlInt Integer
   | PerlStr String
   | PerlVar PerlVars
@@ -66,6 +67,7 @@ showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
 showPerlVars :: PerlVars -> String
 showPerlVars VarSubImplicit = "$_[0]"
 showPerlVars (VarNamed x) = '$' : x
+showPerlVars (VarSub x) = '&' : x
 
 showPerlAST :: PerlAST -> String
 showPerlAST (PerlInt n) = show n
@@ -73,6 +75,8 @@ showPerlAST (PerlStr x) = show x -- This is, though, Haskell's literal
 showPerlAST (PerlVar t) = showPerlVars t
 showPerlAST (PerlDeclare v t) = "my " ++ (showPerlVars v) ++
                                    " = (" ++ showPerlAST t ++ ")"
+showPerlAST (PerlSubDeclare (VarSub s) (PerlAbstract t)) =
+  "sub " ++ s ++ " { " ++ showPerlAST t ++ " }\n"
 showPerlAST (PerlOp op t1 t2) = "(" ++ showPerlAST t1 ++ " "
                                 ++ symbol op ++ " " ++
                                 showPerlAST t2 ++ ")"

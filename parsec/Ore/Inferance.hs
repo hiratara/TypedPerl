@@ -29,6 +29,10 @@ buildConstraint t = (ty, cns)
                          (TypeContext {names = typeNames, context = []})
 
 buildConstraint' :: PerlAST -> State TypeContext (PerlType, Constraint)
+buildConstraint' (PerlSubDeclare v t) = do
+  (ty', cns) <- buildConstraint' t
+  modify (\tc -> tc {context = (v, ty'):context tc})
+  return (TypeVar TypeUnknown , cns)
 buildConstraint' (PerlDeclare v t) = do
   (ty', cns) <- buildConstraint' t
   modify (\tc -> tc {context = (v, ty'):context tc})
