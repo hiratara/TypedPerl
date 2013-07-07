@@ -30,10 +30,9 @@ buildConstraint t = (ty, cns)
 
 buildConstraint' :: PerlAST -> State TypeContext (PerlType, Constraint)
 buildConstraint' (PerlDeclare v t) = do
-  ty' <- (TypeVar . TypeNamed) `fmap` freshName
-  (ty'', cns) <- buildConstraint' t
+  (ty', cns) <- buildConstraint' t
   modify (\tc -> tc {context = (v, ty'):context tc})
-  return (ty' ,(ty', ty''):cns)
+  return (ty', cns)
 buildConstraint' (PerlStr _) = return (TypeBuiltin TypeStr, [])
 buildConstraint' (PerlInt _) = return (TypeBuiltin TypeInt, [])
 buildConstraint' (PerlVar v) = do
