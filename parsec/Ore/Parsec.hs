@@ -20,7 +20,7 @@ parserTopSequences = do
                     return (t', maybe False (const True) m)
                 )
   if next
-    then try ((try parserSubDeclare <|> parserSequences) >>=
+    then try (parserTopSequences >>=
               return . (PerlSeq t1)) <|> return t1
     else return t1
   where
@@ -48,7 +48,8 @@ parserTerminalTerm = do
 
 parserTerm :: PerlParser
 parserTerm = do
-  term <- try parserCallSub <|> try parserOp <|> parserTerminalTerm
+  term <- try parserCallSub <|> try parserCallAnonymous <|>
+          try parserOp <|> parserTerminalTerm
   spaces
   return term
 
@@ -128,6 +129,15 @@ parserSub = do
 
 parserCallSub :: PerlParser
 parserCallSub = do
+  sym <- perlSymbol
+  spaces
+  char '(' >> spaces
+  t1 <- parserTerm
+  char ')' >> spaces
+  return (PerlApp (PerlVar (VarSub sym)) t1)
+
+parserCallAnonymous :: PerlParser
+parserCallAnonymous = do
   t1 <- parserTerminalTerm
   string "->" >> spaces >> char '(' >> spaces
   t2 <- parserTerm

@@ -44,6 +44,11 @@ tests = TestList [
       putStrLn ('\n':e)
       assertBool "Don't next sub declare" ((not . null) e)
   )
+  , (TestCase $ do
+      let Left e = inferCode "sub add { $_[0] + 2 }; add(3)"
+      putStrLn ('\n':e)
+      assertBool "Don't next sub declare" ((not . null) e)
+  )
   ]
 
 main :: IO ()
