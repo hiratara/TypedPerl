@@ -15,7 +15,7 @@ parserTopSequences = do
   (t1, next) <- (do t <- try parserSubDeclare
                     return (t, True)
                 ) <|> (
-                 do t' <- parserTerm
+                 do t' <- parserSentence
                     m <- optionMaybe eol
                     return (t', maybe False (const True) m)
                 )
@@ -28,7 +28,7 @@ parserTopSequences = do
 
 parserSequences :: PerlParser
 parserSequences = do
-  t1 <- parserTerm
+  t1 <- parserSentence
   let next = do
         eol
         t2 <- parserSequences
@@ -37,21 +37,52 @@ parserSequences = do
   where
     eol = (char ';' >> spaces) <|> eof
 
-parserTerminalTerm :: PerlParser
-parserTerminalTerm = do
-  ret <- parserSub <|> parserMy <|>
-         (try parserImplicitVar <|> parserVars) <|>
-         parserInt <|> parserStr <|>
-         between (char '(') (char ')') parserTerm
+parserSentence :: PerlParser
+parserSentence = do
+  ast <- parserMy <|> parserTerm
   spaces
-  return ret
+  return ast
 
 parserTerm :: PerlParser
 parserTerm = do
-  term <- try parserCallSub <|> try parserCallAnonymous <|>
-          try parserOp <|> parserTerminalTerm
+  t <- parserCallAnonymous
   spaces
-  return term
+  parserTerm' t
+
+parserTerm' :: PerlAST -> PerlParser
+parserTerm' t1 =
+  (try $ do
+      op <- choice (map parseOpSymbol builtinBinops)
+      spaces
+      t2 <- parserCallAnonymous
+      spaces
+      parserTerm' (PerlOp op t1 t2)
+  ) <|> return t1
+  where
+    parseOpSymbol b = (string . symbol) b >> return b
+
+parserCallAnonymous :: PerlParser
+parserCallAnonymous = do
+  atom <- parserAtom
+  parserCallAnonymous' atom
+
+parserCallAnonymous' :: PerlAST -> PerlParser
+parserCallAnonymous' callie =
+  (try $ do
+    string "->" >> spaces >> char '(' >> spaces
+    t <- parserTerm
+    char ')'
+    parserCallAnonymous' (PerlApp callie t)
+  ) <|> return callie
+
+parserAtom :: PerlParser
+parserAtom = do
+  ast <- parserInt <|> parserStr <|>
+         between (char '(') (char ')') parserTerm <|>
+         parserSub <|> parserCallSub <|>
+         try parserImplicitVar <|> parserVars
+  spaces
+  return ast
 
 parserMy :: PerlParser
 parserMy = do
@@ -59,18 +90,8 @@ parserMy = do
   (PerlVar v) <- parserVars
   spaces
   char '=' >> spaces
-  t <- parserTerminalTerm
+  t <- parserTerm
   return (PerlDeclare v t)
-
-parserOp :: PerlParser
-parserOp = do
-  t1 <- parserTerminalTerm
-  op <- choice (map parseOpSymbol builtinBinops)
-  spaces
-  t2 <- parserTerm
-  return (PerlOp op t1 t2)
-  where
-    parseOpSymbol b = (string . symbol) b >> return b
 
 parserImplicitVar :: PerlParser
 parserImplicitVar = do
@@ -135,14 +156,6 @@ parserCallSub = do
   t1 <- parserTerm
   char ')' >> spaces
   return (PerlApp (PerlVar (VarSub sym)) t1)
-
-parserCallAnonymous :: PerlParser
-parserCallAnonymous = do
-  t1 <- parserTerminalTerm
-  string "->" >> spaces >> char '(' >> spaces
-  t2 <- parserTerm
-  char ')'
-  return (PerlApp t1 t2)
 
 perlParser :: PerlParser
 perlParser = parserTopSequences
