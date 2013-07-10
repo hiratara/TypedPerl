@@ -44,43 +44,131 @@ parserSentence = do
   return ast
 
 parserTerm :: PerlParser
-parserTerm = do
-  t <- parserCallAnonymous
+parserTerm = precedence24
+
+precedence24 :: PerlParser
+precedence24 = precedence23
+
+precedence23 :: PerlParser
+precedence23 = precedence22
+
+precedence22 :: PerlParser
+precedence22 = precedence21
+
+precedence21 :: PerlParser
+precedence21 = precedence20
+
+precedence20 :: PerlParser
+precedence20 = precedence19
+
+precedence19 :: PerlParser
+precedence19 = precedence18
+
+precedence18 :: PerlParser
+precedence18 = precedence17
+
+precedence17 :: PerlParser
+precedence17 = precedence16
+
+precedence16 :: PerlParser
+precedence16 = precedence15
+
+precedence15 :: PerlParser
+precedence15 = precedence14
+
+precedence14 :: PerlParser
+precedence14 = precedence13
+
+precedence13 :: PerlParser
+precedence13 = precedence12
+
+precedence12 :: PerlParser
+precedence12 = precedence11
+
+precedence11 :: PerlParser
+precedence11 = precedence10
+
+precedence10 :: PerlParser
+precedence10 = precedence9
+
+precedence9 :: PerlParser
+precedence9 = precedence8
+
+precedence8 :: PerlParser
+precedence8 = do
+  t <- precedence7
   spaces
-  parserTerm' t
-
-parserTerm' :: PerlAST -> PerlParser
-parserTerm' t1 =
-  (try $ do
-      op <- choice (map parseOpSymbol builtinBinops)
-      spaces
-      t2 <- parserCallAnonymous
-      spaces
-      parserTerm' (PerlOp op t1 t2)
-  ) <|> return t1
+  precedence8' t
   where
-    parseOpSymbol b = (string . symbol) b >> return b
+    precedence8' :: PerlAST -> PerlParser
+    precedence8' t1 =
+      (try $ do
+        op <- choice (map (string . (: "")) "+-.")
+        spaces
+        t2 <- precedence7
+        spaces
+        precedence8' (PerlOp (lookupOp builtinBinops op) t1 t2)
+      ) <|> return t1
+      where
+        lookupOp [] _ = error "[BUG]but builtin operators"
+        lookupOp (x:xs) sym
+          | symbol x == sym = x
+          | otherwise = lookupOp xs sym
 
-parserCallAnonymous :: PerlParser
-parserCallAnonymous = do
-  atom <- parserAtom
-  parserCallAnonymous' atom
+precedence7 :: PerlParser
+precedence7 = do
+  t <- precedence6
+  spaces
+  precedence7' t
+  where
+    precedence7' :: PerlAST -> PerlParser
+    precedence7' t1 =
+      (try $ do
+        op <- choice (map (string . (: "")) "*/%x")
+        spaces
+        t2 <- precedence6
+        spaces
+        precedence7' (PerlOp (lookupOp builtinBinops op) t1 t2)
+      ) <|> return t1
+      where
+        lookupOp [] _ = error "[BUG]but builtin operators"
+        lookupOp (x:xs) sym
+          | symbol x == sym = x
+          | otherwise = lookupOp xs sym
 
-parserCallAnonymous' :: PerlAST -> PerlParser
-parserCallAnonymous' callie =
-  (try $ do
-    string "->" >> spaces >> char '(' >> spaces
-    t <- parserTerm
-    char ')'
-    parserCallAnonymous' (PerlApp callie t)
-  ) <|> return callie
+precedence6 :: PerlParser
+precedence6 = precedence5
 
-parserAtom :: PerlParser
-parserAtom = do
+precedence5 :: PerlParser
+precedence5 = precedence4
+
+precedence4 :: PerlParser
+precedence4 = precedence3
+
+precedence3 :: PerlParser
+precedence3 = precedence2
+
+precedence2 :: PerlParser
+precedence2 = do
+  atom <- precedence1
+  precedence2' atom
+  where
+    precedence2' :: PerlAST -> PerlParser
+    precedence2' callie =
+      (try $ do
+        string "->" >> spaces >> char '(' >> spaces
+        t <- parserTerm
+        char ')'
+        precedence2' (PerlApp callie t)
+      ) <|> return callie
+
+precedence1 :: PerlParser
+precedence1 = do
   ast <- parserInt <|> parserStr <|>
          between (char '(') (char ')') parserTerm <|>
-         parserSub <|> parserCallSub <|>
-         try parserImplicitVar <|> parserVars
+         try parserCallSub <|>
+         try parserImplicitVar <|> parserVars <|>
+         parserSub -- Not specified in perlop.pod
   spaces
   return ast
 
