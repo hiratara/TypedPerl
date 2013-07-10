@@ -95,46 +95,10 @@ precedence9 :: PerlParser
 precedence9 = precedence8
 
 precedence8 :: PerlParser
-precedence8 = do
-  t <- precedence7
-  spaces
-  precedence8' t
-  where
-    precedence8' :: PerlAST -> PerlParser
-    precedence8' t1 =
-      (try $ do
-        op <- choice (map (string . (: "")) "+-.")
-        spaces
-        t2 <- precedence7
-        spaces
-        precedence8' (PerlOp (lookupOp builtinBinops op) t1 t2)
-      ) <|> return t1
-      where
-        lookupOp [] _ = error "[BUG]but builtin operators"
-        lookupOp (x:xs) sym
-          | symbol x == sym = x
-          | otherwise = lookupOp xs sym
+precedence8 = parserBinOp precedence7 (map (: []) "+-.")
 
 precedence7 :: PerlParser
-precedence7 = do
-  t <- precedence6
-  spaces
-  precedence7' t
-  where
-    precedence7' :: PerlAST -> PerlParser
-    precedence7' t1 =
-      (try $ do
-        op <- choice (map (string . (: "")) "*/%x")
-        spaces
-        t2 <- precedence6
-        spaces
-        precedence7' (PerlOp (lookupOp builtinBinops op) t1 t2)
-      ) <|> return t1
-      where
-        lookupOp [] _ = error "[BUG]but builtin operators"
-        lookupOp (x:xs) sym
-          | symbol x == sym = x
-          | otherwise = lookupOp xs sym
+precedence7 = parserBinOp precedence6 (map (: []) "*/%x")
 
 precedence6 :: PerlParser
 precedence6 = precedence5
@@ -171,6 +135,27 @@ precedence1 = do
          parserSub -- Not specified in perlop.pod
   spaces
   return ast
+
+parserBinOp :: PerlParser -> [String] -> PerlParser
+parserBinOp operandParser symbols = do
+  t <- operandParser
+  spaces
+  parserBinOp' t
+  where
+    parserBinOp' :: PerlAST -> PerlParser
+    parserBinOp' t1 =
+      (try $ do
+        op <- choice (map string symbols)
+        spaces
+        t2 <- operandParser
+        spaces
+        parserBinOp' (PerlOp (lookupOp builtinBinops op) t1 t2)
+      ) <|> return t1
+      where
+        lookupOp [] _ = error "[BUG]but builtin operators"
+        lookupOp (x:xs) sym
+          | symbol x == sym = x
+          | otherwise = lookupOp xs sym
 
 parserMy :: PerlParser
 parserMy = do
