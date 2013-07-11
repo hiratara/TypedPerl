@@ -10,8 +10,7 @@ module Ore.Types (
   ) where
 
 data PerlTypeVars =
-  TypeUnknown
-  | TypeNamed String
+  TypeNamed String
   deriving (Show, Eq)
 
 data PerlTypeBuiltins =
@@ -21,6 +20,7 @@ data PerlTypeBuiltins =
 
 data PerlType =
   TypeVar PerlTypeVars
+  | TypeUnknown
   | TypeBuiltin PerlTypeBuiltins
   | TypeArrow PerlType PerlType
   deriving (Show, Eq)
@@ -51,7 +51,6 @@ data PerlAST =
   deriving Show
 
 showPerlTypeVars :: PerlTypeVars -> String
-showPerlTypeVars TypeUnknown = "?"
 showPerlTypeVars (TypeNamed x) = x
 
 showPerlTypeBuiltins :: PerlTypeBuiltins -> String
@@ -60,6 +59,7 @@ showPerlTypeBuiltins TypeStr = "Str"
 
 showPerlType :: PerlType -> String
 showPerlType (TypeVar tyv) = showPerlTypeVars tyv
+showPerlType TypeUnknown = "?"
 showPerlType (TypeBuiltin ty) = showPerlTypeBuiltins ty
 showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
                                    ++ showPerlType ty2 ++ ")"

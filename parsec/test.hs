@@ -37,7 +37,7 @@ tests = TestList [
   )
   , (TestCase $ do
       let Right ty = inferCode "sub x { 1 }"
-      assertEqual "decrare is statement" ty (TypeVar TypeUnknown)
+      assertEqual "decrare is statement" ty TypeUnknown
   )
   , (TestCase $ do
       let Left e = inferCode "sub x { sub y { 1 }; $_[0] }"

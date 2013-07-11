@@ -32,7 +32,7 @@ buildConstraint' :: PerlAST -> State TypeContext (PerlType, Constraint)
 buildConstraint' (PerlSubDeclare v t) = do
   (ty', cns) <- buildConstraint' t
   modify (\tc -> tc {context = (v, ty'):context tc})
-  return (TypeVar TypeUnknown , cns)
+  return (TypeUnknown, cns)
 buildConstraint' (PerlDeclare v t) = do
   (ty', cns) <- buildConstraint' t
   modify (\tc -> tc {context = (v, ty'):context tc})
@@ -44,9 +44,7 @@ buildConstraint' (PerlVar v) = do
   case lookup v ctx of
     Just ty' -> return (ty', [])
     -- Should report as errors
-    _ -> return (tyUnknown, [(tyUnknown,tyUnknown)])
-  where
-    tyUnknown = TypeVar TypeUnknown
+    _ -> return (TypeUnknown, [(TypeUnknown, TypeUnknown)])
 
 buildConstraint' (PerlOp op t1 t2) = do
   (ty1, c1) <- buildConstraint' t1
@@ -101,7 +99,7 @@ unify ((t1, t2):cs)
         (t2from, t2to) = arrow t2
         isTypeVar (TypeVar _) = True
         isTypeVar _ = False
-        isUnknown (TypeVar TypeUnknown) = True
+        isUnknown TypeUnknown = True
         isUnknown _ = False
         isArrowType (TypeArrow _ _) = True
         isArrowType _ = False
