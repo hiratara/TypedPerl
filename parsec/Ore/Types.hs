@@ -36,7 +36,7 @@ data PerlBinOp = PerlBinOp {
   , leftType :: PerlType
   , rightType :: PerlType
   , returnType :: PerlType
-} deriving Show
+} deriving (Show, Eq)
 
 data PerlAST =
   PerlSubDeclare PerlVars PerlAST
@@ -48,7 +48,7 @@ data PerlAST =
   | PerlAbstract PerlAST
   | PerlApp PerlAST PerlAST
   | PerlSeq PerlAST PerlAST
-  deriving Show
+  deriving (Show, Eq)
 
 showPerlTypeVars :: PerlTypeVars -> String
 showPerlTypeVars (TypeNamed x) = x
