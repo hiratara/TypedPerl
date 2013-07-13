@@ -120,10 +120,9 @@ precedence2 = do
     precedence2' :: PerlAST -> PerlParser
     precedence2' callie =
       (try $ do
-        string "->" >> spaces >> char '(' >> spaces
-        t <- parserTerm
-        char ')'
-        precedence2' (PerlApp callie t)
+        string "->" >> spaces
+        ts <- parserArgs
+        precedence2' (PerlApp callie ts)
       ) <|> return callie
 
 precedence1 :: PerlParser
@@ -168,8 +167,10 @@ parserMy = do
 
 parserImplicitVar :: PerlParser
 parserImplicitVar = do
-  string "$_[0]"
-  return (PerlVar VarSubImplicit)
+  string "$_[" >> spaces
+  c <- many1 digit
+  spaces >> char ']'
+  return (PerlImplicitItem (read c))
 
 alphabetChars :: String
 alphabetChars = '_' : [toEnum (fromEnum 'a' + n) | n <- [1 .. 26]]
@@ -225,10 +226,15 @@ parserCallSub :: PerlParser
 parserCallSub = do
   sym <- perlSymbol
   spaces
+  ts <- parserArgs
+  return (PerlApp (PerlVar (VarSub sym)) ts)
+
+parserArgs :: Parsec String PerlState [PerlAST]
+parserArgs = do
   char '(' >> spaces
-  t1 <- parserTerm
+  ts <- parserTerm `sepBy` (char ',' >> spaces)
   char ')' >> spaces
-  return (PerlApp (PerlVar (VarSub sym)) t1)
+  return ts
 
 perlParser :: PerlParser
 perlParser = parserTopSequences

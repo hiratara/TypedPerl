@@ -18,8 +18,12 @@ tests = TestList [
   (TestCase $ do
       let Right ty = inferCode "1"
       assertEqual "int" ty (TypeBuiltin TypeInt)
-  ),
-  (TestCase $ do
+  )
+  , (TestCase $ do
+      let Right ty = inferCode "sub { 1 }->()"
+      assertEqual "int(no args)" ty (TypeBuiltin TypeInt)
+  )
+  , (TestCase $ do
       let Right ty = inferCode "sub { $_[0] }->(1)"
       assertEqual "int" ty (TypeBuiltin TypeInt)
   )
@@ -33,9 +37,8 @@ tests = TestList [
       assertBool "out of scope" ((not . null) e)
   )
   , (TestCase $ do
-      let Right ty = inferCode "sub { my $x = $_[0]; sub { $_[0] x $x } }->(3)"
-      assertEqual "my var" ty (TypeArrow (TypeBuiltin TypeStr)
-                                         (TypeBuiltin TypeStr))
+      let Right ty = inferCode "my $f = sub { my $x = $_[0]; sub { $_[0] x $x } }->(3); $f->(\"PASS STRING\")"
+      assertEqual "my var" ty (TypeBuiltin TypeStr)
   )
   , (TestCase $ do
       let Right ty = inferCode "sub x { 1 }"
@@ -54,5 +57,18 @@ tests = TestList [
   , (TestCase $ do
       let Right ty = inferCode "sub {$_[0]->(0) + 0}->(sub {$_[0]})"
       assertEqual "decrare is statement" ty (TypeBuiltin TypeInt)
+  )
+  , (TestCase $ do
+      let Right ty = inferCode "sub { $_[1] }->(\"\", 2)"
+      assertEqual "2 args" ty (TypeBuiltin TypeInt)
+  )
+  , (TestCase $ do
+      let Right ty = inferCode "sub { $_[1] }->(\"\", 2, 3)"
+      assertEqual "more args are O.K." ty (TypeBuiltin TypeInt)
+  )
+  , (TestCase $ do
+      let Left e = inferCode "sub { $_[1] }->(\"\")"
+      putStrLn ('\n':e)
+      assertBool "less args" ((not . null) e)
   )
   ]
