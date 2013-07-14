@@ -1,6 +1,8 @@
 module Ore.Inferance (
   infer
   ) where
+import Data.Monoid
+import Ore.PerlType
 import Ore.Substitute
 import Ore.Types
 import Ore.Utils
@@ -171,30 +173,15 @@ typesToConstr m m' = (constraints, deleteKeys sames m', deleteKeys sames m)
     unsafeLookup k m'' = let Just v = M.lookup k m'' in v
 
 elemTypeType :: PerlType -> PerlTypeVars -> Bool
-elemTypeType (TypeVar t) v = v == t
-elemTypeType (TypeArg args) v = elemArgType args v
-elemTypeType (TypeArrow t1' t2') v =
-  t1' `elemTypeType` v || t2' `elemTypeType` v
-elemTypeType _ _ = False
+elemTypeType ty v = getAny $ foldMapType (\v' -> Any (v == v'))
+                                         (const (Any False)) ty
 
-elemArgType :: PerlArgs -> PerlTypeVars -> Bool
-elemArgType (ArgEmpty m) v = elemMapType m v
-elemArgType (ArgNamed _ m) v = elemMapType m v
-elemMapType :: M.Map k PerlType -> PerlTypeVars -> Bool
-elemMapType m v = M.foldr (\ty b -> b || elemTypeType ty v)
-                          False m
-
-elemArgArgs :: PerlArgs -> String -> Bool
-elemArgArgs (ArgEmpty m) name = elemMapArgs m name
-elemArgArgs (ArgNamed s m) name
-  | s == name = True
-  | otherwise = elemMapArgs m name
 elemTypeArgs :: PerlType -> String -> Bool
-elemTypeArgs (TypeArg args) str = elemArgArgs args str
-elemTypeArgs _ _ = False
+elemTypeArgs ty x = getAny $ foldMapType (const (Any False))
+                                         (\(ArgNamed x' _) -> Any (x == x'))
+                                         ty
 elemMapArgs :: M.Map k PerlType -> String -> Bool
-elemMapArgs m name = M.foldr (\t b -> b || elemTypeArgs t name)
-                             False m
+elemMapArgs m x = or $ map (flip elemTypeArgs x) (M.elems m)
 
 substC :: Substitute -> Constraint -> Constraint
 substC subst constr = map substConst' constr
