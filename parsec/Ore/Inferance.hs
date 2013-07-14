@@ -97,45 +97,25 @@ type TypeError = String
 -- TypeArg PerlArgs
 unify :: Constraint -> Either TypeError Substitute
 unify [] = return []
-unify ((EqType t1 t2):cs)
-  | isUnknown t1 || isUnknown t2 = Left "not defined"
-  | t1 == t2 = unify cs
-  | isTypeVar t1 && isBuiltin t2 = do
-    ss <- unify (substC [SubstType t1var t2] cs)
-    return ((SubstType t1var t2) : ss)
-  | isTypeVar t2 && isBuiltin t1 = do
-    ss <- unify (substC [(SubstType t2var t1)] cs)
-    return ((SubstType t2var t1) : ss)
-  | isTypeVar t1 && not (t2 `elemTypeType` typeVar t1) = do
-    ss <- unify (substC [(SubstType t1var t2)] cs)
-    return ((SubstType t1var t2) : ss)
-  | isTypeVar t2 && not (t1 `elemTypeType` typeVar t2) = do
-    ss <- unify (substC [(SubstType t2var t1)] cs)
-    return ((SubstType t2var t1) : ss)
-  | isArrowType t1 && isArrowType t2 =
-      unify ((EqType t1from t2from) : (EqType t1to t2to) : cs)
-  | isArg t1 && isArg t2 =
-      let (TypeArg t1', TypeArg t2') = (t1, t2)
-      in unify ((EqArgs t1' t2') : cs)
-  | otherwise = Left ("Couldn't find answer:" ++ show t1 ++ "==" ++ show t2)
-  where t1var = typeVar t1
-        t2var = typeVar t2
-        (t1from, t1to) = arrow t1
-        (t2from, t2to) = arrow t2
-        isTypeVar (TypeVar _) = True
-        isTypeVar _ = False
-        isUnknown TypeUnknown = True
-        isUnknown _ = False
-        isArrowType (TypeArrow _ _) = True
-        isArrowType _ = False
-        isBuiltin (TypeBuiltin _) = True
-        isBuiltin _ = False
-        isArg (TypeArg _) = True
-        isArg _ = False
-        typeVar (TypeVar t) = t
-        typeVar t = error $ show t ++ " isn't type variables."
-        arrow (TypeArrow ta tb) = (ta, tb)
-        arrow t = error $ show t ++ " isn't type arrow types."
+unify ((EqType type1 type2):cs) = case (type1, type2) of
+  (TypeUnknown, _) -> Left "not defined"
+  (t1, t2@TypeUnknown) -> unify ((EqType t2 t1):cs)
+  (t1, t2) | t1 == t2 -> unify cs
+  (t1, t2@(TypeVar _)) | isntVar t1 -> unify ((EqType t2 t1):cs)
+    where isntVar (TypeVar _) = False
+          isntVar _ = True
+  (TypeVar v, b@(TypeBuiltin _)) -> do
+    ss <- unify (substC [SubstType v b] cs)
+    return ((SubstType v b) : ss)
+  (TypeVar v, t)
+    | not $ t `elemTypeType` v ->
+      do let subst = SubstType v t
+         ss <- unify (substC (subst:[]) cs)
+         return (subst:ss)
+  (TypeArrow t1 t1', TypeArrow t2 t2') ->
+    unify ((EqType t1 t2):(EqType t1' t2'):cs)
+  (TypeArg arg1, TypeArg arg2) -> unify ((EqArgs arg1 arg2):cs)
+  (t1, t2) -> Left ("Couldn't find answer:" ++ show t1 ++ "==" ++ show t2)
 unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
   (ArgEmpty m, ArgEmpty m')
     | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
