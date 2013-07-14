@@ -142,8 +142,7 @@ unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
     | otherwise -> Left ("Don't match rows of const arguments:"
                          ++ show m ++ "," ++ show m')
     where
-      newConstraints = map (\k -> EqType (unsafeLookup k m)
-                                         (unsafeLookup k m')) (M.keys m)
+      newConstraints = typesToConstr m m'
   (ArgNamed s m, ArgEmpty m') ->
     if isContained
        then let subst = SubstArgs s (ArgEmpty (deleteKeys sames m'))
@@ -155,16 +154,14 @@ unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
     where
       isContained = all (\e -> e `elem` M.keys m') (M.keys m)
       sames = sameKeys m m'
-      newConstraints = map (\k ->
-        EqType (unsafeLookup k m) (unsafeLookup k m')) sames
+      newConstraints =  typesToConstr m m'
   (ArgEmpty _, ArgNamed _ _) -> unify ((EqArgs a2 a1):cs)
   (ArgNamed s m, ArgNamed s' m')
     -- Should I check if m or m' is empty?
     | s == s' -> unify (EqArgs (ArgEmpty m) (ArgEmpty m'):cs)
     | otherwise -> let
       sames = sameKeys m m'
-      newConstraints = map (\k ->
-        EqType (unsafeLookup k m) (unsafeLookup k m')) sames
+      newConstraints = typesToConstr m m'
       newName = s ++ "'" -- TODO: It's not new name!
       constr = newConstraints ++ cs
       constr' = substC substs constr
@@ -188,8 +185,10 @@ isntRecursive (EqArgs a b) = isntRecursive' a b >> isntRecursive' b a
       if elemMapArgs m n then Left ("recursive row variable " ++ n)
                          else return ()
 
-unsafeLookup :: Ord k => k -> M.Map k v -> v
-unsafeLookup k m'' = let Just v = M.lookup k m'' in v
+typesToConstr :: Ord k => M.Map k PerlType -> M.Map k PerlType -> Constraint
+typesToConstr m m' = map (\k -> EqType (unsafeLookup k m) (unsafeLookup k m'))
+                         (sameKeys m m')
+  where unsafeLookup k m'' = let Just v = M.lookup k m'' in v
 
 elemTypeType :: PerlType -> PerlTypeVars -> Bool
 elemTypeType (TypeVar t) v = v == t
