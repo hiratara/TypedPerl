@@ -136,7 +136,7 @@ unify ((EqType t1 t2):cs)
         typeVar t = error $ show t ++ " isn't type variables."
         arrow (TypeArrow ta tb) = (ta, tb)
         arrow t = error $ show t ++ " isn't type arrow types."
-unify ((EqArgs a1 a2):cs) = case (a1, a2) of
+unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
   (ArgEmpty m, ArgEmpty m')
     | M.keys m == M.keys m' -> unify (newConstraints ++ cs)
     | otherwise -> Left ("Don't match rows of const arguments:"
@@ -147,7 +147,7 @@ unify ((EqArgs a1 a2):cs) = case (a1, a2) of
   (ArgNamed s m, ArgEmpty m') ->
     if isContained
        then let subst = SubstArgs s (ArgEmpty (deleteKeys sames m'))
-                constr = aConstraint:newConstraints ++ cs
+                constr = newConstraints ++ cs
                 constr' = substC [subst] constr
             in do substs <- unify constr'
                   return (subst:substs)
@@ -157,12 +157,11 @@ unify ((EqArgs a1 a2):cs) = case (a1, a2) of
       sames = sameKeys m m'
       newConstraints = map (\k ->
         EqType (unsafeLookup k m) (unsafeLookup k m')) sames
-      aConstraint = (EqArgs (ArgNamed s M.empty)
-                            (ArgEmpty (deleteKeys sames m')))
   (ArgEmpty _, ArgNamed _ _) -> unify ((EqArgs a2 a1):cs)
   (ArgNamed s m, ArgNamed s' m')
     -- Should I check if m or m' is empty?
-    | s /= s' -> let
+    | s == s' -> unify (EqArgs (ArgEmpty m) (ArgEmpty m'):cs)
+    | otherwise -> let
       sames = sameKeys m m'
       newConstraints = map (\k ->
         EqType (unsafeLookup k m) (unsafeLookup k m')) sames
@@ -176,10 +175,18 @@ unify ((EqArgs a1 a2):cs) = case (a1, a2) of
       in do
         substs' <- unify constr'
         return (substs ++ substs')
-    | m == m' -> if elemMapArgs m s
-                   then Left ("Recursive (" ++ s ++ " in " ++ show m ++ ")")
-                   else unify cs
-    | otherwise -> Left ("Don't match rows of arguments (" ++ s ++ ")")
+
+isntRecursive :: ConstraintItem -> Either String ()
+isntRecursive (EqType _ _) = error "[BUG]Not Implemented"
+isntRecursive (EqArgs a b) = isntRecursive' a b >> isntRecursive' b a
+  where
+    isntRecursive' (ArgEmpty _) _ = return ()
+    isntRecursive' (ArgNamed n _) (ArgEmpty m) =
+      if elemMapArgs m n then Left ("recursive row variable " ++ n)
+                         else return ()
+    isntRecursive' (ArgNamed n _) (ArgNamed _ m) =
+      if elemMapArgs m n then Left ("recursive row variable " ++ n)
+                         else return ()
 
 unsafeLookup :: Ord k => k -> M.Map k v -> v
 unsafeLookup k m'' = let Just v = M.lookup k m'' in v
