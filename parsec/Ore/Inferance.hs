@@ -101,9 +101,6 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
   (TypeUnknown, _) -> Left "not defined"
   (t1, t2@TypeUnknown) -> unify ((EqType t2 t1):cs)
   (t1, t2) | t1 == t2 -> unify cs
-  (t1, t2@(TypeVar _)) | isntVar t1 -> unify ((EqType t2 t1):cs)
-    where isntVar (TypeVar _) = False
-          isntVar _ = True
   (TypeVar v, b@(TypeBuiltin _)) -> do
     ss <- unify (substC [SubstType v b] cs)
     return ((SubstType v b) : ss)
@@ -112,6 +109,8 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
       do let subst = SubstType v t
          ss <- unify (substC (subst:[]) cs)
          return (subst:ss)
+  (t1, t2@(TypeVar _)) -> -- t1 mustn't be TypeVar (See above guard sentences)
+    unify ((EqType t2 t1):cs)
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
     unify ((EqType t1 t2):(EqType t1' t2'):cs)
   (TypeArg arg1, TypeArg arg2) -> unify ((EqArgs arg1 arg2):cs)
