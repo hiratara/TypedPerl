@@ -35,9 +35,6 @@ substArgs' (SubstType v' ty') ty = mapArgs substOne id ty
   where
     substOne v = if v == v' then ty' else TypeVar v
 
-substTypeMap :: Substitute -> M.Map k PerlType -> M.Map k PerlType
-substTypeMap ss = M.map (substType ss)
-
 argMerge :: PerlArgs -> M.Map Int PerlType -> PerlArgs
 argMerge (ArgEmpty m) m' = ArgEmpty (unsafeUnion m m')
 argMerge (ArgNamed x m) m' = ArgNamed x (unsafeUnion m m')
