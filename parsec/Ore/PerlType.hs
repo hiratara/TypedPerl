@@ -1,5 +1,6 @@
 module Ore.PerlType (
-  varsMapType, varsMapArgs, varsFoldMapType, varsFoldMapArgs
+    varsMapType, varsMapArgs, varsFoldMapType, varsFoldMapArgs
+  , mapType, mapArgs
   ) where
 import qualified Data.Map as M
 import Data.Monoid
@@ -27,3 +28,21 @@ varsFoldMapType f g = foldr mappend mempty . varsMapType f g
 varsFoldMapArgs :: Monoid a =>
                (PerlTypeVars -> a) -> (PerlArgs -> a) -> PerlArgs -> a
 varsFoldMapArgs f g = foldr mappend mempty . varsMapArgs f g
+
+mapType :: (PerlTypeVars -> PerlType) -> (PerlArgs -> PerlArgs)
+           -> PerlType -> PerlType
+mapType f _ (TypeVar v) = f v
+mapType _ _ ty@(TypeUnknown) = ty
+mapType _ _ ty@(TypeBuiltin _) = ty
+mapType f g (TypeArg args) = TypeArg (mapArgs f g args)
+mapType f g (TypeArrow t1 t2) = TypeArrow (mapType' t1) (mapType' t2)
+  where mapType' = mapType f g
+
+mapArgs :: (PerlTypeVars -> PerlType) -> (PerlArgs -> PerlArgs)
+           -> PerlArgs -> PerlArgs
+mapArgs f g (ArgNamed x m) = g (ArgNamed x (mapArgsMap f g m))
+mapArgs f g (ArgEmpty m) = ArgEmpty (mapArgsMap f g m)
+
+mapArgsMap :: (PerlTypeVars -> PerlType) -> (PerlArgs -> PerlArgs)
+              -> M.Map k PerlType -> M.Map k PerlType
+mapArgsMap f g = M.map (mapType f g)

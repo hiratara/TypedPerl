@@ -3,6 +3,7 @@ module Ore.Substitute (
   , substType, substArgs
 ) where
 import qualified Data.Map as M
+import Ore.PerlType
 import Ore.Types
 import Ore.Utils
 data SubstituteItem =
@@ -11,24 +12,28 @@ data SubstituteItem =
 type Substitute = [SubstituteItem]
 
 substType :: Substitute -> PerlType -> PerlType
-substType [] ty = ty
-substType (s:ss) ty@(TypeVar tyV) = case s of
-  SubstType tyV' ty' | tyV == tyV' -> substType ss ty'
-  _                                -> substType ss ty
-substType _ TypeUnknown = TypeUnknown
-substType _ b@(TypeBuiltin _) = b
-substType ss (TypeArg x) = TypeArg (substArgs ss x)
-substType ss (TypeArrow ty1 ty2) =
-  TypeArrow (substType ss ty1) (substType ss ty2)
+substType ss ty = foldl (flip substType') ty ss
+
+substType' :: SubstituteItem -> PerlType -> PerlType
+substType' (SubstArgs x args) ty = mapType TypeVar substOne ty
+  where
+    substOne an@(ArgNamed x' _) = if x == x' then args else an
+substType' (SubstType v' ty') ty = mapType substOne id ty
+  where
+    substOne v = if v == v' then ty' else TypeVar v
 
 substArgs :: Substitute -> PerlArgs -> PerlArgs
-substArgs [] args = args
-substArgs ss (ArgEmpty m) = ArgEmpty (substTypeMap ss m)
-substArgs (s:ss) (ArgNamed x m) = case s of
-  SubstArgs x' args | x == x' -> substArgs ss (argMerge args m)
-  _                           -> substArgs ss
-                                           (ArgNamed x (substTypeMap (s:ss) m))
--- substArgs ss (ArgNamed x m) = ArgNamed x (substTypeMap ss m)
+substArgs ss ty = foldl (flip substArgs') ty ss
+
+substArgs' :: SubstituteItem -> PerlArgs -> PerlArgs
+substArgs' (SubstArgs x args) ty = mapArgs TypeVar substOne ty
+  where
+    substOne args'@(ArgNamed x' m)
+      | x == x'   = argMerge args m
+      | otherwise = args'
+substArgs' (SubstType v' ty') ty = mapArgs substOne id ty
+  where
+    substOne v = if v == v' then ty' else TypeVar v
 
 substTypeMap :: Substitute -> M.Map k PerlType -> M.Map k PerlType
 substTypeMap ss = M.map (substType ss)
