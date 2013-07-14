@@ -173,13 +173,13 @@ typesToConstr m m' = (constraints, deleteKeys sames m', deleteKeys sames m)
     unsafeLookup k m'' = let Just v = M.lookup k m'' in v
 
 elemTypeType :: PerlType -> PerlTypeVars -> Bool
-elemTypeType ty v = getAny $ foldMapType (\v' -> Any (v == v'))
-                                         (const (Any False)) ty
+elemTypeType ty v = getAny $ varsFoldMapType (\v' -> Any (v == v'))
+                                             (const (Any False)) ty
 
 elemTypeArgs :: PerlType -> String -> Bool
-elemTypeArgs ty x = getAny $ foldMapType (const (Any False))
-                                         (\(ArgNamed x' _) -> Any (x == x'))
-                                         ty
+elemTypeArgs ty x = getAny $ varsFoldMapType (const (Any False))
+                                             (\(ArgNamed x' _) -> Any (x == x'))
+                                             ty
 elemMapArgs :: M.Map k PerlType -> String -> Bool
 elemMapArgs m x = or $ map (flip elemTypeArgs x) (M.elems m)
 
