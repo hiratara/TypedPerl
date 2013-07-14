@@ -138,40 +138,37 @@ unify ((EqType t1 t2):cs)
         arrow t = error $ show t ++ " isn't type arrow types."
 unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
   (ArgEmpty m, ArgEmpty m')
-    | M.keys m == M.keys m' -> unify (newConstraints ++ cs)
+    | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
     | otherwise -> Left ("Don't match rows of const arguments:"
                          ++ show m ++ "," ++ show m')
     where
-      newConstraints = typesToConstr m m'
-  (ArgNamed s m, ArgEmpty m') ->
-    if isContained
-       then let subst = SubstArgs s (ArgEmpty (deleteKeys sames m'))
-                constr = newConstraints ++ cs
-                constr' = substC [subst] constr
-            in do substs <- unify constr'
-                  return (subst:substs)
-       else Left ("Oops, " ++ show m' ++ " has other keys:" ++ show m)
+      (newConstraints, lackM, lackM') = typesToConstr m m'
+  (ArgNamed s m, ArgEmpty m')
+    | M.null lackM' ->
+       let substs = [SubstArgs s (ArgEmpty lackM)]
+           constr = newConstraints ++ cs
+           constr' = substC substs constr
+       in do substs' <- unify constr'
+             return (substs ++ substs')
+    | otherwise -> Left ("Oops, " ++ show m' ++ " has other keys:" ++ show m)
     where
-      isContained = all (\e -> e `elem` M.keys m') (M.keys m)
-      sames = sameKeys m m'
-      newConstraints =  typesToConstr m m'
+      (newConstraints, lackM, lackM') = typesToConstr m m'
   (ArgEmpty _, ArgNamed _ _) -> unify ((EqArgs a2 a1):cs)
   (ArgNamed s m, ArgNamed s' m')
     -- Should I check if m or m' is empty?
     | s == s' -> unify (EqArgs (ArgEmpty m) (ArgEmpty m'):cs)
-    | otherwise -> let
-      sames = sameKeys m m'
-      newConstraints = typesToConstr m m'
-      newName = s ++ "'" -- TODO: It's not new name!
-      constr = newConstraints ++ cs
-      constr' = substC substs constr
-      substs = [
-        SubstArgs s (ArgNamed newName (deleteKeys sames m'))
-        , SubstArgs s' (ArgNamed newName (deleteKeys sames m))
-        ]
-      in do
-        substs' <- unify constr'
-        return (substs ++ substs')
+    | otherwise ->
+      let newName = s ++ "'" -- TODO: It's not new name!
+          substs = [
+            SubstArgs s (ArgNamed newName lackM)
+            , SubstArgs s' (ArgNamed newName lackM')
+            ]
+          constr = newConstraints ++ cs
+          constr' = substC substs constr
+      in do substs' <- unify constr'
+            return (substs ++ substs')
+    where
+      (newConstraints, lackM, lackM') = typesToConstr m m'
 
 isntRecursive :: ConstraintItem -> Either String ()
 isntRecursive (EqType _ _) = error "[BUG]Not Implemented"
@@ -185,10 +182,14 @@ isntRecursive (EqArgs a b) = isntRecursive' a b >> isntRecursive' b a
       if elemMapArgs m n then Left ("recursive row variable " ++ n)
                          else return ()
 
-typesToConstr :: Ord k => M.Map k PerlType -> M.Map k PerlType -> Constraint
-typesToConstr m m' = map (\k -> EqType (unsafeLookup k m) (unsafeLookup k m'))
-                         (sameKeys m m')
-  where unsafeLookup k m'' = let Just v = M.lookup k m'' in v
+typesToConstr :: Ord k => M.Map k PerlType -> M.Map k PerlType ->
+                 (Constraint, M.Map k PerlType, M.Map k PerlType)
+typesToConstr m m' = (constraints, deleteKeys sames m', deleteKeys sames m)
+  where
+    constraints = map (\k -> EqType (unsafeLookup k m) (unsafeLookup k m'))
+                      sames
+    sames = sameKeys m m'
+    unsafeLookup k m'' = let Just v = M.lookup k m'' in v
 
 elemTypeType :: PerlType -> PerlTypeVars -> Bool
 elemTypeType (TypeVar t) v = v == t
