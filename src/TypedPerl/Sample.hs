@@ -1,7 +1,7 @@
-module Ore.Sample where
-import Ore.Types
-import Ore.Parsec
-import Ore.Inferance
+module TypedPerl.Sample where
+import TypedPerl.Types
+import TypedPerl.Parsec
+import TypedPerl.Inferance
 
 sample :: String
 sample = "sub { $_[0] + 1 }"

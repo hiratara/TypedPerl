@@ -1,4 +1,4 @@
-module Ore.Types (
+module TypedPerl.Types (
   PerlTypeVars (..),
   RecsVar,
   PerlRecs (..),

@@ -1,10 +1,10 @@
-module Ore.Test.Parser (
+module TypedPerl.Test.Parser (
   tests
   ) where
 import Test.HUnit
 import qualified Data.Map as M
-import Ore.Parsec
-import Ore.Types
+import TypedPerl.Parsec
+import TypedPerl.Types
 
 tests :: Test
 tests = TestList [

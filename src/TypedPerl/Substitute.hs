@@ -1,12 +1,12 @@
-module Ore.Substitute (
+module TypedPerl.Substitute (
   Substitute, SubstituteItem(..)
   , substType, substRecs
   , substRecsStr
 ) where
 import qualified Data.Map as M
-import Ore.PerlType
-import Ore.Types
-import Ore.Utils
+import TypedPerl.PerlType
+import TypedPerl.Types
+import TypedPerl.Utils
 data SubstituteItem =
   SubstType PerlTypeVars PerlType
   | SubstArgs RecsVar (PerlRecs Int)

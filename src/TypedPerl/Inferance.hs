@@ -1,11 +1,11 @@
-module Ore.Inferance (
+module TypedPerl.Inferance (
   infer
   ) where
 import Data.Monoid
-import Ore.PerlType
-import Ore.Substitute
-import Ore.Types
-import Ore.Utils
+import TypedPerl.PerlType
+import TypedPerl.Substitute
+import TypedPerl.Types
+import TypedPerl.Utils
 import Control.Monad.State
 import qualified Data.Map as M
 import Debug.Trace

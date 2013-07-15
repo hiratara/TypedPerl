@@ -1,4 +1,4 @@
-module Ore.Utils (
+module TypedPerl.Utils (
     sameKeys
   , deleteKeys
   ) where

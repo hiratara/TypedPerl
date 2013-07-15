@@ -1,11 +1,11 @@
-module Ore.PerlType (
+module TypedPerl.PerlType (
     varsMapType, varsMapRecs, varsFoldMapType, varsFoldMapRecs
   , mapType, mapRecs
   , mapRecsStr
   ) where
 import qualified Data.Map as M
 import Data.Monoid
-import Ore.Types
+import TypedPerl.Types
 
 varsMapType :: (PerlTypeVars -> a) -> (PerlRecs Int -> a) ->
                (PerlRecs String -> a) -> PerlType -> [a]

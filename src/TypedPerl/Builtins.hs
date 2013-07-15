@@ -1,7 +1,7 @@
-module Ore.Builtins (
+module TypedPerl.Builtins (
   builtinBinops
   ) where
-import Ore.Types
+import TypedPerl.Types
 
 builtinBinops :: [PerlBinOp]
 builtinBinops = [

@@ -1,10 +1,10 @@
-module Ore.Test.Inferance (
+module TypedPerl.Test.Inferance (
   tests
   ) where
 import Test.HUnit
-import Ore.Inferance
-import Ore.Parsec
-import Ore.Types
+import TypedPerl.Inferance
+import TypedPerl.Parsec
+import TypedPerl.Types
 
 inferCode :: String -> Either String PerlType
 inferCode code = parsed >>= infer

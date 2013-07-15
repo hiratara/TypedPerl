@@ -1,10 +1,10 @@
-module Ore.Parsec where
+module TypedPerl.Parsec where
 import Control.Monad
 import Data.Char
 import qualified Data.Map as M
 import Text.Parsec
-import Ore.Builtins
-import Ore.Types
+import TypedPerl.Builtins
+import TypedPerl.Types
 import Debug.Trace (traceShow)
 
 type PerlParserBase r = Parsec String PerlState r
