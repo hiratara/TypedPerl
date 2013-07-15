@@ -1,5 +1,6 @@
 module Ore.Types (
   PerlTypeVars (..),
+  ArgsVar,
   PerlArgs (..),
   PerlTypeBuiltins (..),
   PerlType (..),
@@ -15,9 +16,10 @@ data PerlTypeVars =
   TypeNamed String
   deriving (Show, Eq)
 
+type ArgsVar = String
 data PerlArgs =
   ArgEmpty (M.Map Int PerlType)
-  | ArgNamed String (M.Map Int PerlType)
+  | ArgNamed ArgsVar (M.Map Int PerlType)
   deriving (Show, Eq)
 
 data PerlTypeBuiltins =

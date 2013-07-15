@@ -150,7 +150,7 @@ unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
 
-isntRecursive :: ConstraintItem -> Either String ()
+isntRecursive :: ConstraintItem -> Either TypeError ()
 isntRecursive (EqType _ _) = error "[BUG]Not Implemented"
 isntRecursive (EqArgs a b) = isntRecursive' a b >> isntRecursive' b a
   where
@@ -175,11 +175,11 @@ elemTypeType :: PerlType -> PerlTypeVars -> Bool
 elemTypeType ty v = getAny $ varsFoldMapType (\v' -> Any (v == v'))
                                              (const (Any False)) ty
 
-elemTypeArgs :: PerlType -> String -> Bool
+elemTypeArgs :: PerlType -> ArgsVar -> Bool
 elemTypeArgs ty x = getAny $ varsFoldMapType (const (Any False))
                                              (\(ArgNamed x' _) -> Any (x == x'))
                                              ty
-elemMapArgs :: M.Map k PerlType -> String -> Bool
+elemMapArgs :: M.Map k PerlType -> ArgsVar -> Bool
 elemMapArgs m x = or $ map (flip elemTypeArgs x) (M.elems m)
 
 substC :: Substitute -> Constraint -> Constraint

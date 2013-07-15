@@ -8,7 +8,7 @@ import Ore.Types
 import Ore.Utils
 data SubstituteItem =
   SubstType PerlTypeVars PerlType
-  | SubstArgs String PerlArgs
+  | SubstArgs ArgsVar PerlArgs
 type Substitute = [SubstituteItem]
 
 substType :: Substitute -> PerlType -> PerlType
