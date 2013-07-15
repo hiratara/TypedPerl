@@ -8,7 +8,7 @@ import Ore.Types
 import Ore.Utils
 data SubstituteItem =
   SubstType PerlTypeVars PerlType
-  | SubstRecs RecsVar PerlRecs
+  | SubstRecs RecsVar (PerlRecs Int)
 type Substitute = [SubstituteItem]
 
 substType :: Substitute -> PerlType -> PerlType
@@ -22,10 +22,10 @@ substType' (SubstType v' ty') ty = mapType substOne id ty
   where
     substOne v = if v == v' then ty' else TypeVar v
 
-substRecs :: Substitute -> PerlRecs -> PerlRecs
+substRecs :: Substitute -> PerlRecs Int -> PerlRecs Int
 substRecs ss ty = foldl (flip substRecs') ty ss
 
-substRecs' :: SubstituteItem -> PerlRecs -> PerlRecs
+substRecs' :: SubstituteItem -> PerlRecs Int -> PerlRecs Int
 substRecs' (SubstRecs x args) ty = mapRecs TypeVar substOne ty
   where
     substOne args'@(RecNamed x' m)
@@ -35,7 +35,7 @@ substRecs' (SubstType v' ty') ty = mapRecs substOne id ty
   where
     substOne v = if v == v' then ty' else TypeVar v
 
-argMerge :: PerlRecs -> M.Map Int PerlType -> PerlRecs
+argMerge :: Ord k => PerlRecs k -> M.Map k PerlType -> PerlRecs k
 argMerge (RecEmpty m) m' = RecEmpty (unsafeUnion m m')
 argMerge (RecNamed x m) m' = RecNamed x (unsafeUnion m m')
 

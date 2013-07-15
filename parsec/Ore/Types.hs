@@ -17,9 +17,9 @@ data PerlTypeVars =
   deriving (Show, Eq)
 
 type RecsVar = String
-data PerlRecs =
-  RecEmpty (M.Map Int PerlType)
-  | RecNamed RecsVar (M.Map Int PerlType)
+data PerlRecs k =
+  RecEmpty (M.Map k PerlType)
+  | RecNamed RecsVar (M.Map k PerlType)
   deriving (Show, Eq)
 
 data PerlTypeBuiltins =
@@ -31,7 +31,7 @@ data PerlType =
   TypeVar PerlTypeVars
   | TypeUnknown
   | TypeBuiltin PerlTypeBuiltins
-  | TypeArg PerlRecs
+  | TypeArg (PerlRecs Int)
   | TypeArrow PerlType PerlType
   deriving (Show, Eq)
 
@@ -64,13 +64,13 @@ data PerlAST =
 showPerlTypeVars :: PerlTypeVars -> String
 showPerlTypeVars (TypeNamed x) = x
 
-showRecsMap :: M.Map Int PerlType -> String
+showRecsMap :: Show k => M.Map k PerlType -> String
 showRecsMap m = "{" ++ content ++ "}"
   where
     content = concat $ map (\(k, v) -> show k ++ ":" ++ showPerlType v)
                            (M.assocs m)
 
-showPerlRecs :: PerlRecs -> String
+showPerlRecs :: Show k => PerlRecs k -> String
 showPerlRecs (RecEmpty m) = showRecsMap m -- TODO
 showPerlRecs (RecNamed v m) = v ++ "⊕" ++ showRecsMap m
 

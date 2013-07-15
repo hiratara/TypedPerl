@@ -13,8 +13,7 @@ import Debug.Trace
 type Constraint = [ConstraintItem]
 data ConstraintItem =
   EqType PerlType PerlType
-  | EqRecs PerlRecs PerlRecs
-  deriving Show
+  | EqRecs (PerlRecs Int) (PerlRecs Int)
 type Context = [(PerlVars, PerlType)]
 data TypeContext = TypeContext {
   names :: TypeNames
