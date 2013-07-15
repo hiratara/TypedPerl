@@ -1,6 +1,7 @@
 module Ore.PerlType (
     varsMapType, varsMapRecs, varsFoldMapType, varsFoldMapRecs
   , mapType, mapRecs
+  , mapRecsStr
   ) where
 import qualified Data.Map as M
 import Data.Monoid
@@ -12,6 +13,7 @@ varsMapType f _ _ (TypeVar v) = f v:[]
 varsMapType _ _ _ (TypeUnknown) = []
 varsMapType _ _ _ (TypeBuiltin _) = []
 varsMapType f g h (TypeArg args) = varsMapRecs f g h args
+varsMapType f g h (TypeObj obj) = varsMapRecsStr f g h obj
 varsMapType f g h (TypeArrow t1 t2) = mapType' t1 ++ mapType' t2
   where mapType' = varsMapType f g h
 
@@ -23,6 +25,17 @@ varsMapRecs f g h (RecEmpty m) = varsMapRecsMap f g h m
 varsMapRecsMap :: (PerlTypeVars -> a) -> (PerlRecs Int -> a) ->
                   (PerlRecs String -> a) -> M.Map Int PerlType -> [a]
 varsMapRecsMap f g h m = concat . map (varsMapType f g h) $ M.elems m
+
+-- Copied from varsMapRecs
+varsMapRecsStr :: (PerlTypeVars -> a) -> (PerlRecs Int -> a) ->
+               (PerlRecs String -> a) -> PerlRecs String -> [a]
+varsMapRecsStr f g h v@(RecNamed _ m) = h v : varsMapRecsMapStr f g h m
+varsMapRecsStr f g h (RecEmpty m) = varsMapRecsMapStr f g h m
+
+-- Copied from varsMapRecsMap
+varsMapRecsMapStr :: (PerlTypeVars -> a) -> (PerlRecs Int -> a) ->
+                  (PerlRecs String -> a) -> M.Map String PerlType -> [a]
+varsMapRecsMapStr f g h m = concat . map (varsMapType f g h) $ M.elems m
 
 varsFoldMapType :: Monoid a =>
                (PerlTypeVars -> a) -> (PerlRecs Int -> a) ->

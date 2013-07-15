@@ -88,4 +88,8 @@ tests = TestList [
       putStrLn ('\n':e)
       assertBool "no fields" ((not . null) e)
   )
+  , (TestCase $ do
+      let Right ty = inferCode "sub new { bless {name => \"abcde\"}, \"Person\" }\nsub name { $_[0]->{name} }\nname(new());"
+      assertEqual "complicated codes" ty (TypeBuiltin TypeStr)
+  )
   ]

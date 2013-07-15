@@ -252,8 +252,10 @@ substC :: Substitute -> Constraint -> Constraint
 substC subst constr = map substConst' constr
   where substConst' (EqType a b) = EqType (substType' a) (substType' b)
         substConst' (EqArgs a b) = EqArgs (substRecs' a) (substRecs' b)
+        substConst' (EqRecs a b) = EqRecs (substRecsStr' a) (substRecsStr' b)
         substType' = substType subst
         substRecs' = substRecs subst
+        substRecsStr' = substRecsStr subst
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = do

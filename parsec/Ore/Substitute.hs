@@ -1,6 +1,7 @@
 module Ore.Substitute (
   Substitute, SubstituteItem(..)
   , substType, substRecs
+  , substRecsStr
 ) where
 import qualified Data.Map as M
 import Ore.PerlType
@@ -36,7 +37,28 @@ substRecs' (SubstArgs x args) ty = mapRecs TypeVar substOne id ty
     substOne args'@(RecNamed x' m)
       | x == x'   = argMerge args m
       | otherwise = args'
+-- Copied from substArgs
+substRecs' (SubstRecs x args) ty = mapRecs TypeVar id substOne ty
+  where
+    substOne args'@(RecNamed x' m)
+      | x == x'   = argMerge args m
+      | otherwise = args'
 substRecs' (SubstType v' ty') ty = mapRecs substOne id id ty
+  where
+    substOne v = if v == v' then ty' else TypeVar v
+
+-- Copied from substRecs
+substRecsStr :: Substitute -> PerlRecs String -> PerlRecs String
+substRecsStr ss ty = foldl (flip substRecsStr') ty ss
+
+-- Copied from substRecs'
+substRecsStr' :: SubstituteItem -> PerlRecs String -> PerlRecs String
+substRecsStr' (SubstArgs x args) ty = mapRecsStr TypeVar substOne id ty
+  where
+    substOne args'@(RecNamed x' m)
+      | x == x'   = argMerge args m
+      | otherwise = args'
+substRecsStr' (SubstType v' ty') ty = mapRecsStr substOne id id ty
   where
     substOne v = if v == v' then ty' else TypeVar v
 
