@@ -49,11 +49,10 @@ tests = TestList [
       putStrLn ('\n':e)
       assertBool "Don't next sub declare" ((not . null) e)
   )
-  -- , (TestCase $ do
-  --     let Left e = inferCode "sub add { $_[0] + 2 }; add(3)"
-  --     putStrLn ('\n':e)
-  --     assertBool "Don't next sub declare" ((not . null) e)
-  -- )
+  , (TestCase $ do
+      let Right ty = inferCode "sub add { $_[0] + 2 } add(3)"
+      assertEqual "Declare subroutin and call it" ty (TypeBuiltin TypeInt)
+  )
   , (TestCase $ do
       let Right ty = inferCode "sub {$_[0]->(0) + 0}->(sub {$_[0]})"
       assertEqual "decrare is statement" ty (TypeBuiltin TypeInt)
