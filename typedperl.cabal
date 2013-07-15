@@ -47,14 +47,32 @@ cabal-version:       >=1.8
 
 executable typedperl
   -- .hs or .lhs file containing the Main module.
-  -- main-is:             
+  main-is:             typedperl.hs
   
   -- Modules included in this executable, other than Main.
   -- other-modules:       
   
   -- Other library packages from which modules are imported.
-  build-depends:       base ==4.6.*, containers ==0.5.*, mtl ==2.1.*, parsec ==3.1.*, HUnit ==1.2.*
+  build-depends:       base ==4.6.*, typedperl
   
   -- Directories containing source files.
   hs-source-dirs:      src/
   
+
+library
+  hs-source-dirs:   src/
+  exposed-modules:  TypedPerl.Types
+                  , TypedPerl.Substitute
+                  , TypedPerl.Inferance
+                  , TypedPerl.Parsec
+                  , TypedPerl.Utils
+                  , TypedPerl.Sample
+                  , TypedPerl.PerlType
+                  , TypedPerl.Builtins
+  build-depends:  base ==4.6.*, containers ==0.5.*, mtl ==2.1.*, parsec ==3.1.*
+
+test-suite unit-test
+  hS-source-dirs:      test/
+  type:                exitcode-stdio-1.0
+  main-is:             test.hs
+  build-depends:       base ==4.6.*, typedperl, containers ==0.5.*, HUnit ==1.2.*
