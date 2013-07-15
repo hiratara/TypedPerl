@@ -79,4 +79,13 @@ tests = TestList [
       putStrLn ('\n':e)
       assertBool "less args" ((not . null) e)
   )
+  , (TestCase $ do
+      let Right ty = inferCode "(bless {abc => 3}, \"X\")->{abc}"
+      assertEqual "field access" ty (TypeBuiltin TypeInt)
+  )
+  , (TestCase $ do
+      let Left e = inferCode "(bless {abc => 3}, \"X\")->{def}"
+      putStrLn ('\n':e)
+      assertBool "no fields" ((not . null) e)
+  )
   ]

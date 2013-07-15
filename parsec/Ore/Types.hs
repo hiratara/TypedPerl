@@ -112,6 +112,7 @@ showPerlAST (PerlObj m x) = "bless " ++ hash ++ ", \"" ++ x ++ "\""
     hash = "{" ++ hashContent ++ "}"
     hashContent = concat $ map (\(k, v) -> k ++ " => " ++ showPerlAST v)
                                (M.assocs m)
+showPerlAST (PerlObjItem t x) = "(" ++ showPerlAST t ++ ")->{" ++ x ++ "}"
 showPerlAST (PerlAbstract t) = "sub {" ++ " " ++ showPerlAST t ++ " }"
 showPerlAST (PerlApp t1 ts) =
   "(" ++ showPerlAST t1 ++ ")->(" ++ terms ++ ")"

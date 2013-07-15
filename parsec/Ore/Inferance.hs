@@ -13,7 +13,8 @@ import Debug.Trace
 type Constraint = [ConstraintItem]
 data ConstraintItem =
   EqType PerlType PerlType
-  | EqRecs (PerlRecs Int) (PerlRecs Int)
+  | EqArgs (PerlRecs Int) (PerlRecs Int)
+  | EqRecs (PerlRecs String) (PerlRecs String)
 type Context = [(PerlVars, PerlType)]
 data TypeContext = TypeContext {
   names :: TypeNames
@@ -60,13 +61,32 @@ buildConstraint' (PerlImplicitItem n) = do
   let newRow1 = RecNamed nameRow1 M.empty
   nameRow2 <- freshName
   let newRow2 = RecNamed nameRow2 (M.fromList [(n, newType)])
-  return (newType, (EqRecs newRow1 newRow2):
+  return (newType, (EqArgs newRow1 newRow2):
                    (EqType ty (TypeArg newRow1)):c)
 buildConstraint' (PerlOp op t1 t2) = do
   (ty1, c1) <- buildConstraint' t1
   (ty2, c2) <- buildConstraint' t2
   return (returnType op,
           (EqType ty1 $ leftType op):(EqType ty2 $ rightType op):c1 ++ c2)
+buildConstraint' (PerlObj m _) = do
+  answers <- mapM (\(k, t) -> do
+                      (ty, c) <- buildConstraint' t
+                      return ((k, ty), c)) (M.assocs m)
+  let argCols = M.fromList (map fst answers)
+  let constraints = concat $ map snd answers
+  return (TypeObj (RecEmpty argCols), constraints)
+
+-- Copied from PerlImplicitItem n
+buildConstraint' (PerlObjItem o f) = do
+  (ty, c) <- buildConstraint' o
+  name <- freshName
+  let newType = TypeVar (TypeNamed name)
+  nameRow1 <- freshName
+  let newRow1 = RecNamed nameRow1 M.empty
+  nameRow2 <- freshName
+  let newRow2 = RecNamed nameRow2 (M.fromList [(f, newType)])
+  return (newType, (EqRecs newRow1 newRow2):
+                   (EqType ty (TypeObj newRow1)):c)
 buildConstraint' (PerlAbstract t) = do
   name <- freshName
   let newType = TypeVar (TypeNamed name)
@@ -113,8 +133,43 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
     unify ((EqType t2 t1):cs)
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
     unify ((EqType t1 t2):(EqType t1' t2'):cs)
-  (TypeArg arg1, TypeArg arg2) -> unify ((EqRecs arg1 arg2):cs)
+  (TypeArg arg1, TypeArg arg2) -> unify ((EqArgs arg1 arg2):cs)
+  (TypeObj obj1, TypeObj obj2) -> unify ((EqRecs obj1 obj2):cs)
   (t1, t2) -> Left ("Couldn't find answer:" ++ show t1 ++ "==" ++ show t2)
+unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
+  (RecEmpty m, RecEmpty m')
+    | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
+    | otherwise -> Left ("Don't match rows of const arguments:"
+                         ++ show m ++ "," ++ show m')
+    where
+      (newConstraints, lackM, lackM') = typesToConstr m m'
+  (RecNamed s m, RecEmpty m')
+    | M.null lackM' ->
+       let substs = [SubstArgs s (RecEmpty lackM)]
+           constr = newConstraints ++ cs
+           constr' = substC substs constr
+       in do substs' <- unify constr'
+             return (substs ++ substs')
+    | otherwise -> Left ("Oops, " ++ show m' ++ " has other keys:" ++ show m)
+    where
+      (newConstraints, lackM, lackM') = typesToConstr m m'
+  (RecEmpty _, RecNamed _ _) -> unify ((EqArgs a2 a1):cs)
+  (RecNamed s m, RecNamed s' m')
+    -- Should I check if m or m' is empty?
+    | s == s' -> unify (EqArgs (RecEmpty m) (RecEmpty m'):cs)
+    | otherwise ->
+      let newName = s ++ "'" -- TODO: It's not new name!
+          substs = [
+            SubstArgs s (RecNamed newName lackM)
+            , SubstArgs s' (RecNamed newName lackM')
+            ]
+          constr = newConstraints ++ cs
+          constr' = substC substs constr
+      in do substs' <- unify constr'
+            return (substs ++ substs')
+    where
+      (newConstraints, lackM, lackM') = typesToConstr m m'
+-- Copied from EqArgs
 unify (c@(EqRecs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
   (RecEmpty m, RecEmpty m')
     | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
@@ -151,6 +206,16 @@ unify (c@(EqRecs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
 
 isntRecursive :: ConstraintItem -> Either TypeError ()
 isntRecursive (EqType _ _) = error "[BUG]Not Implemented"
+isntRecursive (EqArgs a b) = isntRecursive' a b >> isntRecursive' b a
+  where
+    isntRecursive' (RecEmpty _) _ = return ()
+    isntRecursive' (RecNamed n _) (RecEmpty m) =
+      if elemMapRecs m n then Left ("recursive row variable " ++ n)
+                         else return ()
+    isntRecursive' (RecNamed n _) (RecNamed _ m) =
+      if elemMapRecs m n then Left ("recursive row variable " ++ n)
+                         else return ()
+-- Copied from EqArgs
 isntRecursive (EqRecs a b) = isntRecursive' a b >> isntRecursive' b a
   where
     isntRecursive' (RecEmpty _) _ = return ()
@@ -172,10 +237,12 @@ typesToConstr m m' = (constraints, deleteKeys sames m', deleteKeys sames m)
 
 elemTypeType :: PerlType -> PerlTypeVars -> Bool
 elemTypeType ty v = getAny $ varsFoldMapType (\v' -> Any (v == v'))
+                                             (const (Any False))
                                              (const (Any False)) ty
 
 elemTypeArgs :: PerlType -> RecsVar -> Bool
 elemTypeArgs ty x = getAny $ varsFoldMapType (const (Any False))
+                                             (\(RecNamed x' _) -> Any (x == x'))
                                              (\(RecNamed x' _) -> Any (x == x'))
                                              ty
 elemMapRecs :: M.Map k PerlType -> RecsVar -> Bool
@@ -184,7 +251,7 @@ elemMapRecs m x = or $ map (flip elemTypeArgs x) (M.elems m)
 substC :: Substitute -> Constraint -> Constraint
 substC subst constr = map substConst' constr
   where substConst' (EqType a b) = EqType (substType' a) (substType' b)
-        substConst' (EqRecs a b) = EqRecs (substRecs' a) (substRecs' b)
+        substConst' (EqArgs a b) = EqArgs (substRecs' a) (substRecs' b)
         substType' = substType subst
         substRecs' = substRecs subst
 
