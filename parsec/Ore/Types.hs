@@ -9,15 +9,15 @@ module Ore.Types (
   showPerlVars, showPerlAST,
   showPerlTypeVars, showPerlType
   ) where
-import Data.Map (Map)
+import qualified Data.Map as M
 
 data PerlTypeVars =
   TypeNamed String
   deriving (Show, Eq)
 
 data PerlArgs =
-  ArgEmpty (Map Int PerlType)
-  | ArgNamed String (Map Int PerlType)
+  ArgEmpty (M.Map Int PerlType)
+  | ArgNamed String (M.Map Int PerlType)
   deriving (Show, Eq)
 
 data PerlTypeBuiltins =
@@ -62,8 +62,11 @@ data PerlAST =
 showPerlTypeVars :: PerlTypeVars -> String
 showPerlTypeVars (TypeNamed x) = x
 
-showArgsMap :: Map Int PerlType -> String
-showArgsMap = show
+showArgsMap :: M.Map Int PerlType -> String
+showArgsMap m = "{" ++ content ++ "}"
+  where
+    content = concat $ map (\(k, v) -> show k ++ ":" ++ showPerlType v)
+                           (M.assocs m)
 
 showPerlArgs :: PerlArgs -> String
 showPerlArgs (ArgEmpty m) = showArgsMap m -- TODO
