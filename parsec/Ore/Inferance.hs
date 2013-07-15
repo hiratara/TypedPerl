@@ -96,7 +96,6 @@ buildConstraint' (PerlSeq t1 t2) = do
 
 type TypeError = String
 
--- TypeArg PerlArgs
 unify :: Constraint -> Either TypeError Substitute
 unify [] = return []
 unify ((EqType type1 type2):cs) = case (type1, type2) of
