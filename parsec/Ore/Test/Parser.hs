@@ -37,4 +37,9 @@ tests = TestList [
       assertEqual "perl object" t
         (PerlObj (M.fromList [("abc", PerlInt 3)]) "MyClass")
   )
+  , (TestCase $ do
+      let Right t = parsePerl "sub { $_[0]->{def} }"
+      assertEqual "Field access" t
+        (PerlAbstract (PerlObjItem (PerlImplicitItem 0) "def"))
+  )
   ]

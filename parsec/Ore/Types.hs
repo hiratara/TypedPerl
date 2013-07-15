@@ -58,6 +58,7 @@ data PerlAST =
   | PerlImplicitItem Int
   | PerlOp PerlBinOp PerlAST PerlAST
   | PerlObj (M.Map String PerlAST) String
+  | PerlObjItem PerlAST String
   | PerlAbstract PerlAST
   | PerlApp PerlAST [PerlAST]
   | PerlSeq PerlAST PerlAST

@@ -120,8 +120,17 @@ precedence2 = do
     precedence2' callie =
       (try $ do
         string "->" >> spaces
-        ts <- parserArgs
-        precedence2' (PerlApp callie ts)
+        (try $
+          do
+            char '{' >> spaces
+            name <- perlSymbol
+            char '}' >> spaces
+            precedence2' (PerlObjItem callie name)
+          ) <|> (
+          do
+            ts <- parserArgs
+            precedence2' (PerlApp callie ts)
+          )
       ) <|> return callie
 
 precedence1 :: PerlParser
