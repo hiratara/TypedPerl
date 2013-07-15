@@ -2,6 +2,7 @@ module Ore.Test.Parser (
   tests
   ) where
 import Test.HUnit
+import qualified Data.Map as M
 import Ore.Parsec
 import Ore.Types
 
@@ -30,5 +31,10 @@ tests = TestList [
       let Right t = parsePerl "$x->(2, 3)"
       assertEqual "call 2 args" t
         (PerlApp (PerlVar (VarNamed "x")) (map PerlInt [2, 3]))
+  )
+  , (TestCase $ do
+      let Right t = parsePerl "bless {abc => 3}, \"MyClass\";"
+      assertEqual "perl object" t
+        (PerlObj (M.fromList [("abc", PerlInt 3)]) "MyClass")
   )
   ]

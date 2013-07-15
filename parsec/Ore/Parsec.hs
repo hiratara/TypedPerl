@@ -1,12 +1,14 @@
 module Ore.Parsec where
 import Control.Monad
 import Data.Char
+import qualified Data.Map as M
 import Text.Parsec
 import Ore.Builtins
 import Ore.Types
 import Debug.Trace (traceShow)
 
-type PerlParser = Parsec String PerlState PerlAST
+type PerlParserBase r = Parsec String PerlState r
+type PerlParser = PerlParserBase PerlAST
 
 data PerlState = PerlState
 
@@ -131,9 +133,26 @@ precedence1 = do
          between (char '(') (char ')') parserTerm <|>
          try parserCallSub <|>
          try parserImplicitVar <|> parserVars <|>
-         parserSub -- Not specified in perlop.pod
+         parserSub <|> -- Not specified in perlop.pod
+         parserObj     -- Not specified in perlop.pod
   spaces
   return ast
+  where
+    parserObj = do
+      string "bless" >> spaces
+      m <- parserHashRef
+      spaces
+      char ',' >> spaces
+      name <- between (char '"') (char '"') perlClassname
+      return (PerlObj m name)
+    parserHashRef = between (char '{') (char '}') content
+    content = M.fromList `fmap` (pair `sepBy` (char ',' >> spaces))
+    pair = do
+      key <- perlSymbol
+      spaces
+      string "=>" >> spaces
+      value <- parserTerm
+      return (key, value)
 
 parserBinOp :: PerlParser -> [String] -> PerlParser
 parserBinOp operandParser symbols = do
@@ -172,21 +191,35 @@ parserImplicitVar = do
   spaces >> char ']'
   return (PerlImplicitItem (read c))
 
+uAlphabetChars :: String
+uAlphabetChars = '_' : [toEnum (fromEnum 'A' + n) | n <- [0 .. 25]]
+
 alphabetChars :: String
-alphabetChars = '_' : [toEnum (fromEnum 'a' + n) | n <- [1 .. 26]]
+alphabetChars = '_' : [toEnum (fromEnum 'a' + n) | n <- [0 .. 25]]
 
 digitChars :: String
 digitChars = map (head . show) [(0 :: Int) .. 9]
 
-perlSymbol :: Parsec String PerlState String
-perlSymbol = many (oneOf (alphabetChars ++ digitChars))
+symbolChars :: String
+symbolChars = uAlphabetChars ++ alphabetChars ++ digitChars
+
+perlSymbol :: PerlParserBase String
+perlSymbol = do
+  c <- oneOf alphabetChars
+  cs <- many (oneOf symbolChars)
+  return (c:cs)
+
+perlClassname :: PerlParserBase String
+perlClassname = do
+  c <- oneOf uAlphabetChars
+  cs <- many (oneOf symbolChars)
+  return (c:cs)
 
 parserVars :: PerlParser
 parserVars = do
   char '$'
-  n <- oneOf alphabetChars
-  ns <- perlSymbol
-  return (PerlVar (VarNamed (n:ns)))
+  sym <- perlSymbol
+  return (PerlVar (VarNamed sym))
 
 parserInt :: PerlParser
 parserInt = do
@@ -195,11 +228,14 @@ parserInt = do
   return (PerlInt n)
 
 parserStr :: PerlParser
-parserStr = do
+parserStr = PerlStr `fmap` parserStr'
+
+parserStr' :: PerlParserBase String
+parserStr'  = do
   char '"'
   str <- many (noneOf "\"") -- TODO
   char '"'
-  return (PerlStr str)
+  return str
 
 parserBlock :: PerlParser
 parserBlock = do
@@ -229,7 +265,7 @@ parserCallSub = do
   ts <- parserArgs
   return (PerlApp (PerlVar (VarSub sym)) ts)
 
-parserArgs :: Parsec String PerlState [PerlAST]
+parserArgs :: PerlParserBase [PerlAST]
 parserArgs = do
   char '(' >> spaces
   ts <- parserTerm `sepBy` (char ',' >> spaces)

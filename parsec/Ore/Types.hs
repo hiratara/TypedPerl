@@ -32,6 +32,7 @@ data PerlType =
   | TypeUnknown
   | TypeBuiltin PerlTypeBuiltins
   | TypeArg (PerlRecs Int)
+  | TypeObj (PerlRecs String)
   | TypeArrow PerlType PerlType
   deriving (Show, Eq)
 
@@ -56,6 +57,7 @@ data PerlAST =
   | PerlVar PerlVars
   | PerlImplicitItem Int
   | PerlOp PerlBinOp PerlAST PerlAST
+  | PerlObj (M.Map String PerlAST) String
   | PerlAbstract PerlAST
   | PerlApp PerlAST [PerlAST]
   | PerlSeq PerlAST PerlAST
@@ -85,6 +87,7 @@ showPerlType (TypeBuiltin ty) = showPerlTypeBuiltins ty
 showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
                                    ++ showPerlType ty2 ++ ")"
 showPerlType (TypeArg r) = showPerlRecs r
+showPerlType (TypeObj r) = showPerlRecs r
 
 showPerlVars :: PerlVars -> String
 showPerlVars VarSubImplicit = "@_"
@@ -103,6 +106,11 @@ showPerlAST (PerlSubDeclare (VarSub s) (PerlAbstract t)) =
 showPerlAST (PerlOp op t1 t2) = "(" ++ showPerlAST t1 ++ " "
                                 ++ symbol op ++ " " ++
                                 showPerlAST t2 ++ ")"
+showPerlAST (PerlObj m x) = "bless " ++ hash ++ ", \"" ++ x ++ "\""
+  where
+    hash = "{" ++ hashContent ++ "}"
+    hashContent = concat $ map (\(k, v) -> k ++ " => " ++ showPerlAST v)
+                               (M.assocs m)
 showPerlAST (PerlAbstract t) = "sub {" ++ " " ++ showPerlAST t ++ " }"
 showPerlAST (PerlApp t1 ts) =
   "(" ++ showPerlAST t1 ++ ")->(" ++ terms ++ ")"
