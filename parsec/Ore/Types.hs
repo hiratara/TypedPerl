@@ -1,7 +1,7 @@
 module Ore.Types (
   PerlTypeVars (..),
-  ArgsVar,
-  PerlArgs (..),
+  RecsVar,
+  PerlRecs (..),
   PerlTypeBuiltins (..),
   PerlType (..),
   PerlVars (..),
@@ -16,10 +16,10 @@ data PerlTypeVars =
   TypeNamed String
   deriving (Show, Eq)
 
-type ArgsVar = String
-data PerlArgs =
-  ArgEmpty (M.Map Int PerlType)
-  | ArgNamed ArgsVar (M.Map Int PerlType)
+type RecsVar = String
+data PerlRecs =
+  RecEmpty (M.Map Int PerlType)
+  | RecNamed RecsVar (M.Map Int PerlType)
   deriving (Show, Eq)
 
 data PerlTypeBuiltins =
@@ -31,7 +31,7 @@ data PerlType =
   TypeVar PerlTypeVars
   | TypeUnknown
   | TypeBuiltin PerlTypeBuiltins
-  | TypeArg PerlArgs
+  | TypeArg PerlRecs
   | TypeArrow PerlType PerlType
   deriving (Show, Eq)
 
@@ -64,15 +64,15 @@ data PerlAST =
 showPerlTypeVars :: PerlTypeVars -> String
 showPerlTypeVars (TypeNamed x) = x
 
-showArgsMap :: M.Map Int PerlType -> String
-showArgsMap m = "{" ++ content ++ "}"
+showRecsMap :: M.Map Int PerlType -> String
+showRecsMap m = "{" ++ content ++ "}"
   where
     content = concat $ map (\(k, v) -> show k ++ ":" ++ showPerlType v)
                            (M.assocs m)
 
-showPerlArgs :: PerlArgs -> String
-showPerlArgs (ArgEmpty m) = showArgsMap m -- TODO
-showPerlArgs (ArgNamed v m) = v ++ "⊕" ++ showArgsMap m
+showPerlRecs :: PerlRecs -> String
+showPerlRecs (RecEmpty m) = showRecsMap m -- TODO
+showPerlRecs (RecNamed v m) = v ++ "⊕" ++ showRecsMap m
 
 showPerlTypeBuiltins :: PerlTypeBuiltins -> String
 showPerlTypeBuiltins TypeInt = "Int"
@@ -84,7 +84,7 @@ showPerlType TypeUnknown = "?"
 showPerlType (TypeBuiltin ty) = showPerlTypeBuiltins ty
 showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
                                    ++ showPerlType ty2 ++ ")"
-showPerlType (TypeArg r) = showPerlArgs r
+showPerlType (TypeArg r) = showPerlRecs r
 
 showPerlVars :: PerlVars -> String
 showPerlVars VarSubImplicit = "@_"

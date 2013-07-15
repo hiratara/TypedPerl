@@ -1,48 +1,48 @@
 module Ore.PerlType (
-    varsMapType, varsMapArgs, varsFoldMapType, varsFoldMapArgs
-  , mapType, mapArgs
+    varsMapType, varsMapRecs, varsFoldMapType, varsFoldMapRecs
+  , mapType, mapRecs
   ) where
 import qualified Data.Map as M
 import Data.Monoid
 import Ore.Types
 
-varsMapType :: (PerlTypeVars -> a) -> (PerlArgs -> a) -> PerlType -> [a]
+varsMapType :: (PerlTypeVars -> a) -> (PerlRecs -> a) -> PerlType -> [a]
 varsMapType f _ (TypeVar v) = f v:[]
 varsMapType _ _ (TypeUnknown) = []
 varsMapType _ _ (TypeBuiltin _) = []
-varsMapType f g (TypeArg args) = varsMapArgs f g args
+varsMapType f g (TypeArg args) = varsMapRecs f g args
 varsMapType f g (TypeArrow t1 t2) = mapType' t1 ++ mapType' t2
   where mapType' = varsMapType f g
 
-varsMapArgs :: (PerlTypeVars -> a) -> (PerlArgs -> a) -> PerlArgs -> [a]
-varsMapArgs f g v@(ArgNamed _ m) = g v : varsMapArgsMap f g m
-varsMapArgs f g (ArgEmpty m) = varsMapArgsMap f g m
+varsMapRecs :: (PerlTypeVars -> a) -> (PerlRecs -> a) -> PerlRecs -> [a]
+varsMapRecs f g v@(RecNamed _ m) = g v : varsMapRecsMap f g m
+varsMapRecs f g (RecEmpty m) = varsMapRecsMap f g m
 
-varsMapArgsMap :: (PerlTypeVars -> a) -> (PerlArgs -> a) -> M.Map k PerlType -> [a]
-varsMapArgsMap f g m = concat . map (varsMapType f g) $ M.elems m
+varsMapRecsMap :: (PerlTypeVars -> a) -> (PerlRecs -> a) -> M.Map k PerlType -> [a]
+varsMapRecsMap f g m = concat . map (varsMapType f g) $ M.elems m
 
 varsFoldMapType :: Monoid a =>
-               (PerlTypeVars -> a) -> (PerlArgs -> a) -> PerlType -> a
+               (PerlTypeVars -> a) -> (PerlRecs -> a) -> PerlType -> a
 varsFoldMapType f g = foldr mappend mempty . varsMapType f g
 
-varsFoldMapArgs :: Monoid a =>
-               (PerlTypeVars -> a) -> (PerlArgs -> a) -> PerlArgs -> a
-varsFoldMapArgs f g = foldr mappend mempty . varsMapArgs f g
+varsFoldMapRecs :: Monoid a =>
+               (PerlTypeVars -> a) -> (PerlRecs -> a) -> PerlRecs -> a
+varsFoldMapRecs f g = foldr mappend mempty . varsMapRecs f g
 
-mapType :: (PerlTypeVars -> PerlType) -> (PerlArgs -> PerlArgs)
+mapType :: (PerlTypeVars -> PerlType) -> (PerlRecs -> PerlRecs)
            -> PerlType -> PerlType
 mapType f _ (TypeVar v) = f v
 mapType _ _ ty@(TypeUnknown) = ty
 mapType _ _ ty@(TypeBuiltin _) = ty
-mapType f g (TypeArg args) = TypeArg (mapArgs f g args)
+mapType f g (TypeArg args) = TypeArg (mapRecs f g args)
 mapType f g (TypeArrow t1 t2) = TypeArrow (mapType' t1) (mapType' t2)
   where mapType' = mapType f g
 
-mapArgs :: (PerlTypeVars -> PerlType) -> (PerlArgs -> PerlArgs)
-           -> PerlArgs -> PerlArgs
-mapArgs f g (ArgNamed x m) = g (ArgNamed x (mapArgsMap f g m))
-mapArgs f g (ArgEmpty m) = ArgEmpty (mapArgsMap f g m)
+mapRecs :: (PerlTypeVars -> PerlType) -> (PerlRecs -> PerlRecs)
+           -> PerlRecs -> PerlRecs
+mapRecs f g (RecNamed x m) = g (RecNamed x (mapRecsMap f g m))
+mapRecs f g (RecEmpty m) = RecEmpty (mapRecsMap f g m)
 
-mapArgsMap :: (PerlTypeVars -> PerlType) -> (PerlArgs -> PerlArgs)
+mapRecsMap :: (PerlTypeVars -> PerlType) -> (PerlRecs -> PerlRecs)
               -> M.Map k PerlType -> M.Map k PerlType
-mapArgsMap f g = M.map (mapType f g)
+mapRecsMap f g = M.map (mapType f g)

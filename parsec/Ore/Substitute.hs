@@ -1,6 +1,6 @@
 module Ore.Substitute (
   Substitute, SubstituteItem(..)
-  , substType, substArgs
+  , substType, substRecs
 ) where
 import qualified Data.Map as M
 import Ore.PerlType
@@ -8,36 +8,36 @@ import Ore.Types
 import Ore.Utils
 data SubstituteItem =
   SubstType PerlTypeVars PerlType
-  | SubstArgs ArgsVar PerlArgs
+  | SubstRecs RecsVar PerlRecs
 type Substitute = [SubstituteItem]
 
 substType :: Substitute -> PerlType -> PerlType
 substType ss ty = foldl (flip substType') ty ss
 
 substType' :: SubstituteItem -> PerlType -> PerlType
-substType' (SubstArgs x args) ty = mapType TypeVar substOne ty
+substType' (SubstRecs x args) ty = mapType TypeVar substOne ty
   where
-    substOne an@(ArgNamed x' _) = if x == x' then args else an
+    substOne an@(RecNamed x' _) = if x == x' then args else an
 substType' (SubstType v' ty') ty = mapType substOne id ty
   where
     substOne v = if v == v' then ty' else TypeVar v
 
-substArgs :: Substitute -> PerlArgs -> PerlArgs
-substArgs ss ty = foldl (flip substArgs') ty ss
+substRecs :: Substitute -> PerlRecs -> PerlRecs
+substRecs ss ty = foldl (flip substRecs') ty ss
 
-substArgs' :: SubstituteItem -> PerlArgs -> PerlArgs
-substArgs' (SubstArgs x args) ty = mapArgs TypeVar substOne ty
+substRecs' :: SubstituteItem -> PerlRecs -> PerlRecs
+substRecs' (SubstRecs x args) ty = mapRecs TypeVar substOne ty
   where
-    substOne args'@(ArgNamed x' m)
+    substOne args'@(RecNamed x' m)
       | x == x'   = argMerge args m
       | otherwise = args'
-substArgs' (SubstType v' ty') ty = mapArgs substOne id ty
+substRecs' (SubstType v' ty') ty = mapRecs substOne id ty
   where
     substOne v = if v == v' then ty' else TypeVar v
 
-argMerge :: PerlArgs -> M.Map Int PerlType -> PerlArgs
-argMerge (ArgEmpty m) m' = ArgEmpty (unsafeUnion m m')
-argMerge (ArgNamed x m) m' = ArgNamed x (unsafeUnion m m')
+argMerge :: PerlRecs -> M.Map Int PerlType -> PerlRecs
+argMerge (RecEmpty m) m' = RecEmpty (unsafeUnion m m')
+argMerge (RecNamed x m) m' = RecNamed x (unsafeUnion m m')
 
 unsafeUnion :: Ord k => M.Map k v -> M.Map k v -> M.Map k v
 unsafeUnion m m' =
