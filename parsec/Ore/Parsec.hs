@@ -14,19 +14,16 @@ data PerlState = PerlState
 
 parserTopSequences :: PerlParser
 parserTopSequences = do
-  (t1, next) <- (do t <- try parserSubDeclare
-                    return (t, True)
-                ) <|> (
-                 do t' <- parserSentence
-                    m <- optionMaybe eol
-                    return (t', maybe False (const True) m)
-                )
-  if next
-    then try (parserTopSequences >>=
-              return . (PerlSeq t1)) <|> return t1
-    else return t1
+  ts <- (many . try) (try (do {x <- parserSentence; eol; return x}) <|>
+                           do {x <- parserSubDeclare; optional eol; return x})
+  lastTerm <- optionMaybe (try parserSentence <|> parserSubDeclare)
+  let ts' = case lastTerm of
+        Just t -> ts ++ (t:[])
+        _      -> ts
+  eof
+  return (if null ts' then error "NO SENTENCES" else foldr1 PerlSeq ts')
   where
-    eol = (char ';' >> spaces) <|> eof
+    eol = many1 (char ';' >> spaces) >> return ()
 
 parserSequences :: PerlParser
 parserSequences = do

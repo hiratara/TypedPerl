@@ -19,6 +19,11 @@ tests = TestList [
       let Right ty = inferCode "1"
       assertEqual "int" ty (TypeBuiltin TypeInt)
   )
+  -- TODO: our parser can't parse start with empty sentences
+  -- , (TestCase $ do
+  --     let Right ty = inferCode ";;;;5"
+  --     assertEqual "Semicollons" ty (TypeBuiltin TypeInt)
+  -- )
   , (TestCase $ do
       let Right ty = inferCode "sub { 1 }->()"
       assertEqual "int(no args)" ty (TypeBuiltin TypeInt)
@@ -52,6 +57,10 @@ tests = TestList [
   , (TestCase $ do
       let Right ty = inferCode "sub add { $_[0] + 2 } add(3)"
       assertEqual "Declare subroutin and call it" ty (TypeBuiltin TypeInt)
+  )
+  , (TestCase $ do
+      let Right ty = inferCode "sub add { $_[0] + 2 }; add(3)"
+      assertEqual "Sub-dec with semi-collon" ty (TypeBuiltin TypeInt)
   )
   , (TestCase $ do
       let Right ty = inferCode "sub {$_[0]->(0) + 0}->(sub {$_[0]})"
