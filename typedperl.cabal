@@ -53,7 +53,8 @@ executable typedperl
   -- other-modules:       
   
   -- Other library packages from which modules are imported.
-  build-depends:       base ==4.6.*, typedperl
+  build-depends:       base >=4.5 && < 5
+                     , typedperl
   
   -- Directories containing source files.
   hs-source-dirs:      src/
@@ -69,10 +70,16 @@ library
                   , TypedPerl.Sample
                   , TypedPerl.PerlType
                   , TypedPerl.Builtins
-  build-depends:  base ==4.6.*, containers ==0.5.*, mtl ==2.1.*, parsec ==3.1.*
+  build-depends:  base >=4.5 && < 5
+                , containers ==0.5.*
+                , mtl ==2.1.*
+                , parsec ==3.1.*
 
 test-suite unit-test
   hS-source-dirs:      test/
   type:                exitcode-stdio-1.0
   main-is:             test.hs
-  build-depends:       base ==4.6.*, typedperl, containers ==0.5.*, HUnit ==1.2.*
+  build-depends:       base >=4.5 && < 5
+                     , typedperl
+                     , containers ==0.5.*
+                     , HUnit ==1.2.*
