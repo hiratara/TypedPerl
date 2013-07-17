@@ -53,16 +53,8 @@ buildConstraint' (PerlVar v) = do
     Just ty' -> return (ty', [])
     -- Should report as errors
     _ -> return (TypeUnknown, [EqType TypeUnknown TypeUnknown])
-buildConstraint' (PerlImplicitItem n) = do
-  (ty, c) <- buildConstraint' (PerlVar VarSubImplicit)
-  name <- freshName
-  let newType = TypeVar (TypeNamed name)
-  nameRow1 <- freshName
-  let newRow1 = RecNamed nameRow1 M.empty
-  nameRow2 <- freshName
-  let newRow2 = RecNamed nameRow2 (M.fromList [(n, newType)])
-  return (newType, (EqArgs newRow1 newRow2):
-                   (EqType ty (TypeArg newRow1)):c)
+buildConstraint' (PerlImplicitItem n) =
+  buildRecordConstraint (PerlVar VarSubImplicit) n EqArgs
 buildConstraint' (PerlOp op t1 t2) = do
   (ty1, c1) <- buildConstraint' t1
   (ty2, c2) <- buildConstraint' t2
@@ -75,18 +67,7 @@ buildConstraint' (PerlObj m _) = do
   let argCols = M.fromList (map fst answers)
   let constraints = concat $ map snd answers
   return (TypeObj (RecEmpty argCols), constraints)
-
--- Copied from PerlImplicitItem n
-buildConstraint' (PerlObjItem o f) = do
-  (ty, c) <- buildConstraint' o
-  name <- freshName
-  let newType = TypeVar (TypeNamed name)
-  nameRow1 <- freshName
-  let newRow1 = RecNamed nameRow1 M.empty
-  nameRow2 <- freshName
-  let newRow2 = RecNamed nameRow2 (M.fromList [(f, newType)])
-  return (newType, (EqRecs newRow1 newRow2):
-                   (EqType ty (TypeObj newRow1)):c)
+buildConstraint' (PerlObjItem o f) = buildRecordConstraint o f EqRecs
 buildConstraint' (PerlAbstract t) = do
   name <- freshName
   let newType = TypeVar (TypeNamed name)
@@ -112,6 +93,22 @@ buildConstraint' (PerlSeq t1 t2) = do
     (_, c1) <- buildConstraint' t1
     (ty, c2) <- buildConstraint' t2
     return (ty, c2 ++ c1)
+
+buildRecordConstraint :: Ord k =>
+                         PerlAST -> k
+                         -> (PerlRecs k -> PerlRecs k -> ConstraintItem)
+                         -> State TypeContext (PerlType, Constraint)
+buildRecordConstraint ast k newconst = do
+  (ty, c) <- buildConstraint' ast
+  name <- freshName
+  let newType = TypeVar (TypeNamed name)
+  nameRow1 <- freshName
+  let newRow1 = RecNamed nameRow1 M.empty
+  nameRow2 <- freshName
+  let newRow2 = RecNamed nameRow2 (M.fromList [(k, newType)])
+  return (newType, (newconst newRow1 newRow2):
+                   (EqType ty (TypeArg newRow1)):c)
+
 
 type TypeError = String
 
