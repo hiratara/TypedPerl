@@ -93,6 +93,10 @@ tests = TestList [
       assertEqual "complicated codes" ty (TypeBuiltin TypeStr)
   )
   , (TestCase $ do
+      let Right ty = inferCode "my $x = bless {x => \"x\"}, \"Person\"; $x->{x}"
+      assertEqual "complicated codes" ty (TypeBuiltin TypeStr)
+  )
+  , (TestCase $ do
       let Left e = inferCode "sub { my $f = $_[0]; my $g = sub { $f->($_[0]->($_[0])); }; $g->($g); }"
       putStrLn ('\n':e)
       assertBool "y-combinater" ((not . null) e)

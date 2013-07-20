@@ -54,7 +54,7 @@ buildConstraint' (PerlVar v) = do
     -- Should report as errors
     _ -> return (TypeUnknown, [EqType TypeUnknown TypeUnknown])
 buildConstraint' (PerlImplicitItem n) =
-  buildRecordConstraint (PerlVar VarSubImplicit) n EqArgs
+  buildRecordConstraint (PerlVar VarSubImplicit) n EqArgs TypeArg
 buildConstraint' (PerlOp op t1 t2) = do
   (ty1, c1) <- buildConstraint' t1
   (ty2, c2) <- buildConstraint' t2
@@ -67,7 +67,7 @@ buildConstraint' (PerlObj m _) = do
   let argCols = M.fromList (map fst answers)
   let constraints = concat $ map snd answers
   return (TypeObj (RecEmpty argCols), constraints)
-buildConstraint' (PerlObjItem o f) = buildRecordConstraint o f EqRecs
+buildConstraint' (PerlObjItem o f) = buildRecordConstraint o f EqRecs TypeObj
 buildConstraint' (PerlAbstract t) = do
   name <- freshName
   let newType = TypeVar (TypeNamed name)
@@ -97,8 +97,9 @@ buildConstraint' (PerlSeq t1 t2) = do
 buildRecordConstraint :: Ord k =>
                          PerlAST -> k
                          -> (PerlRecs k -> PerlRecs k -> ConstraintItem)
+                         -> (PerlRecs k -> PerlType)
                          -> State TypeContext (PerlType, Constraint)
-buildRecordConstraint ast k newconst = do
+buildRecordConstraint ast k newconst newrectype = do
   (ty, c) <- buildConstraint' ast
   name <- freshName
   let newType = TypeVar (TypeNamed name)
@@ -107,7 +108,7 @@ buildRecordConstraint ast k newconst = do
   nameRow2 <- freshName
   let newRow2 = RecNamed nameRow2 (M.fromList [(k, newType)])
   return (newType, (newconst newRow1 newRow2):
-                   (EqType ty (TypeArg newRow1)):c)
+                   (EqType ty (newrectype newRow1)):c)
 
 
 type TypeError = String
