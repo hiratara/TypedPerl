@@ -143,7 +143,7 @@ unifyRecs :: (Show k, Ord k) =>
              -> (RecsVar -> PerlRecs k -> SubstituteItem)
              -> Either TypeError Substitute
 unifyRecs a1 a2 cs newconst newsubst =
-  isntRecursive (newconst a1 a2) >> case (a1, a2) of
+  isntRecursive a1 a2 >> case (a1, a2) of
   (RecEmpty m, RecEmpty m')
     | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
     | otherwise -> Left ("Don't match rows of const arguments:"
@@ -177,19 +177,8 @@ unifyRecs a1 a2 cs newconst newsubst =
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
 
-isntRecursive :: ConstraintItem -> Either TypeError ()
-isntRecursive (EqType _ _) = error "[BUG]Not Implemented"
-isntRecursive (EqArgs a b) = isntRecursive' a b >> isntRecursive' b a
-  where
-    isntRecursive' (RecEmpty _) _ = return ()
-    isntRecursive' (RecNamed n _) (RecEmpty m) =
-      if elemMapRecs m n then Left ("recursive row variable " ++ n)
-                         else return ()
-    isntRecursive' (RecNamed n _) (RecNamed _ m) =
-      if elemMapRecs m n then Left ("recursive row variable " ++ n)
-                         else return ()
--- Copied from EqArgs
-isntRecursive (EqRecs a b) = isntRecursive' a b >> isntRecursive' b a
+isntRecursive :: PerlRecs k -> PerlRecs k -> Either TypeError ()
+isntRecursive a b = isntRecursive' a b >> isntRecursive' b a
   where
     isntRecursive' (RecEmpty _) _ = return ()
     isntRecursive' (RecNamed n _) (RecEmpty m) =
