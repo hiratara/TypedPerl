@@ -134,7 +134,16 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
   (TypeArg arg1, TypeArg arg2) -> unify ((EqArgs arg1 arg2):cs)
   (TypeObj obj1, TypeObj obj2) -> unify ((EqRecs obj1 obj2):cs)
   (t1, t2) -> Left ("Couldn't find answer:" ++ show t1 ++ "==" ++ show t2)
-unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
+unify ((EqArgs a1 a2):cs) = unifyRecs a1 a2 cs EqArgs SubstArgs
+unify ((EqRecs a1 a2):cs) = unifyRecs a1 a2 cs EqRecs SubstRecs
+
+unifyRecs :: (Show k, Ord k) =>
+             PerlRecs k -> PerlRecs k -> Constraint
+             -> (PerlRecs k -> PerlRecs k -> ConstraintItem)
+             -> (RecsVar -> PerlRecs k -> SubstituteItem)
+             -> Either TypeError Substitute
+unifyRecs a1 a2 cs newconst newsubst =
+  isntRecursive (newconst a1 a2) >> case (a1, a2) of
   (RecEmpty m, RecEmpty m')
     | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
     | otherwise -> Left ("Don't match rows of const arguments:"
@@ -143,7 +152,7 @@ unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
       (newConstraints, lackM, lackM') = typesToConstr m m'
   (RecNamed s m, RecEmpty m')
     | M.null lackM' ->
-       let substs = [SubstArgs s (RecEmpty lackM)]
+       let substs = [newsubst s (RecEmpty lackM)]
            constr = newConstraints ++ cs
            constr' = substC substs constr
        in do substs' <- unify constr'
@@ -151,49 +160,15 @@ unify (c@(EqArgs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
     | otherwise -> Left ("Oops, " ++ show m' ++ " has other keys:" ++ show m)
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
-  (RecEmpty _, RecNamed _ _) -> unify ((EqArgs a2 a1):cs)
+  (RecEmpty _, RecNamed _ _) -> unify ((newconst a2 a1):cs)
   (RecNamed s m, RecNamed s' m')
     -- Should I check if m or m' is empty?
-    | s == s' -> unify (EqArgs (RecEmpty m) (RecEmpty m'):cs)
+    | s == s' -> unify (newconst (RecEmpty m) (RecEmpty m'):cs)
     | otherwise ->
       let newName = s ++ "'" -- TODO: It's not new name!
           substs = [
-            SubstArgs s (RecNamed newName lackM)
-            , SubstArgs s' (RecNamed newName lackM')
-            ]
-          constr = newConstraints ++ cs
-          constr' = substC substs constr
-      in do substs' <- unify constr'
-            return (substs ++ substs')
-    where
-      (newConstraints, lackM, lackM') = typesToConstr m m'
--- Copied from EqArgs
-unify (c@(EqRecs a1 a2):cs) = isntRecursive c >> case (a1, a2) of
-  (RecEmpty m, RecEmpty m')
-    | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
-    | otherwise -> Left ("Don't match rows of const arguments:"
-                         ++ show m ++ "," ++ show m')
-    where
-      (newConstraints, lackM, lackM') = typesToConstr m m'
-  (RecNamed s m, RecEmpty m')
-    | M.null lackM' ->
-       let substs = [SubstRecs s (RecEmpty lackM)]
-           constr = newConstraints ++ cs
-           constr' = substC substs constr
-       in do substs' <- unify constr'
-             return (substs ++ substs')
-    | otherwise -> Left ("Oops, " ++ show m' ++ " has other keys:" ++ show m)
-    where
-      (newConstraints, lackM, lackM') = typesToConstr m m'
-  (RecEmpty _, RecNamed _ _) -> unify ((EqRecs a2 a1):cs)
-  (RecNamed s m, RecNamed s' m')
-    -- Should I check if m or m' is empty?
-    | s == s' -> unify (EqRecs (RecEmpty m) (RecEmpty m'):cs)
-    | otherwise ->
-      let newName = s ++ "'" -- TODO: It's not new name!
-          substs = [
-            SubstRecs s (RecNamed newName lackM)
-            , SubstRecs s' (RecNamed newName lackM')
+            newsubst s (RecNamed newName lackM)
+            , newsubst s' (RecNamed newName lackM')
             ]
           constr = newConstraints ++ cs
           constr' = substC substs constr
