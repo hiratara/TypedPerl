@@ -1,10 +1,10 @@
 module TypedPerl.PerlType (
     varsMapType, varsMapRecs, varsFoldMapType, varsFoldMapRecs
   , mapType, mapRecs
-  , mapRecsStr
   ) where
 import qualified Data.Map as M
 import Data.Monoid
+import Data.Typeable
 import TypedPerl.Types
 
 varsMapType :: (PerlTypeVars -> a) -> (PerlRecs Int -> a) ->
@@ -47,34 +47,25 @@ varsFoldMapRecs :: Monoid a =>
                    (PerlRecs String -> a) -> PerlRecs Int -> a
 varsFoldMapRecs f g h = foldr mappend mempty . varsMapRecs f g h
 
-mapType :: (PerlTypeVars -> PerlType) -> (PerlRecs Int -> PerlRecs Int) ->
-           (PerlRecs String -> PerlRecs String) -> PerlType -> PerlType
-mapType f _ _ (TypeVar v) = f v
-mapType _ _ _ ty@(TypeUnknown) = ty
-mapType _ _ _ ty@(TypeBuiltin _) = ty
-mapType f g h (TypeArg args) = TypeArg (mapRecs f g h args)
-mapType f g h (TypeObj args) = TypeObj (mapRecsStr f g h args)
-mapType f g h (TypeArrow t1 t2) = TypeArrow (mapType' t1) (mapType' t2)
-  where mapType' = mapType f g h
+mapType :: (Typeable k) =>
+           (PerlTypeVars -> PerlType) -> (PerlRecs k -> PerlRecs k) ->
+           PerlType -> PerlType
+mapType f _ (TypeVar v) = f v
+mapType _ _ ty@(TypeUnknown) = ty
+mapType _ _ ty@(TypeBuiltin _) = ty
+mapType f g (TypeArg args) = TypeArg (mapRecs f g args)
+mapType f g (TypeObj args) = TypeObj (mapRecs f g args)
+mapType f g (TypeArrow t1 t2) = TypeArrow (mapType' t1) (mapType' t2)
+  where mapType' = mapType f g
 
-mapRecs :: (PerlTypeVars -> PerlType) -> (PerlRecs Int -> PerlRecs Int) ->
-           (PerlRecs String -> PerlRecs String) -> PerlRecs Int -> PerlRecs Int
-mapRecs f g h (RecNamed x m) = g (RecNamed x (mapRecsMap f g h m))
-mapRecs f g h (RecEmpty m) = RecEmpty (mapRecsMap f g h m)
+mapRecs :: (Typeable k, Typeable k') =>
+           (PerlTypeVars -> PerlType) -> (PerlRecs k -> PerlRecs k) ->
+           PerlRecs k' -> PerlRecs k'
+mapRecs f g (RecNamed x m) = g' (RecNamed x (mapRecsMap f g m))
+  where g' y = maybe y id $ cast y >>= cast . g
+mapRecs f g (RecEmpty m) = RecEmpty (mapRecsMap f g m)
 
-mapRecsMap :: (PerlTypeVars -> PerlType) -> (PerlRecs Int -> PerlRecs Int) ->
-              (PerlRecs String -> PerlRecs String) ->
-              M.Map Int PerlType -> M.Map Int PerlType
-mapRecsMap f g h = M.map (mapType f g h)
-
--- Copied from mapRecs
-mapRecsStr :: (PerlTypeVars -> PerlType) -> (PerlRecs Int -> PerlRecs Int) ->
-           (PerlRecs String -> PerlRecs String) -> PerlRecs String -> PerlRecs String
-mapRecsStr f g h (RecNamed x m) = h (RecNamed x (mapRecsMapStr f g h m))
-mapRecsStr f g h (RecEmpty m) = RecEmpty (mapRecsMapStr f g h m)
-
--- Copied from mapRecsMap
-mapRecsMapStr :: (PerlTypeVars -> PerlType) -> (PerlRecs Int -> PerlRecs Int) ->
-              (PerlRecs String -> PerlRecs String) ->
-              M.Map String PerlType -> M.Map String PerlType
-mapRecsMapStr f g h = M.map (mapType f g h)
+mapRecsMap :: (Typeable k, Typeable k') =>
+              (PerlTypeVars -> PerlType) -> (PerlRecs k -> PerlRecs k) ->
+              M.Map k' PerlType -> M.Map k' PerlType
+mapRecsMap f g = M.map (mapType f g)
