@@ -124,9 +124,9 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
     return ((SubstType v b) : ss)
   (TypeVar v, t)
     | not $ t `elemTypeType` v ->
-      do let subst = SubstType v t
-         ss <- unify (substC (subst:[]) cs)
-         return (subst:ss)
+      do let s = SubstType v t
+         ss <- unify (substC (s:[]) cs)
+         return (s:ss)
   (t1, t2@(TypeVar _)) -> -- t1 mustn't be TypeVar (See above guard sentences)
     unify ((EqType t2 t1):cs)
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
@@ -210,16 +210,16 @@ elemMapRecs :: M.Map k PerlType -> RecsVar -> Bool
 elemMapRecs m x = or $ map (flip elemTypeArgs x) (M.elems m)
 
 substC :: Substitute -> Constraint -> Constraint
-substC subst constr = map substConst' constr
+substC ss constr = map substConst' constr
   where substConst' (EqType a b) = EqType (substType' a) (substType' b)
         substConst' (EqArgs a b) = EqArgs (substRecs' a) (substRecs' b)
         substConst' (EqRecs a b) = EqRecs (substRecsStr' a) (substRecsStr' b)
-        substType' = substType subst
-        substRecs' = substRecs subst
-        substRecsStr' = substRecs subst
+        substType' = subst ss
+        substRecs' = subst ss
+        substRecsStr' = subst ss
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = do
   let (t', c) = buildConstraint t
   s <- unify c
-  return (substType s t')
+  return (subst s t')

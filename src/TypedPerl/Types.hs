@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 module TypedPerl.Types (
   PerlTypeVars (..),
   RecsVar,
@@ -12,7 +11,6 @@ module TypedPerl.Types (
   showPerlTypeVars, showPerlType
   ) where
 import qualified Data.Map as M
-import Data.Typeable
 
 data PerlTypeVars =
   TypeNamed String
@@ -22,7 +20,7 @@ type RecsVar = String
 data PerlRecs k =
   RecEmpty (M.Map k PerlType)
   | RecNamed RecsVar (M.Map k PerlType)
-  deriving (Show, Eq, Typeable)
+  deriving (Show, Eq)
 
 data PerlTypeBuiltins =
   TypeStr
