@@ -1,9 +1,9 @@
 module TypedPerl.Substitute (
   Substitute, SubstituteItem(..)
   , substType, substRecs
-  , substRecsStr
 ) where
 import qualified Data.Map as M
+import Data.Typeable
 import TypedPerl.PerlType
 import TypedPerl.Types
 import TypedPerl.Utils
@@ -17,50 +17,35 @@ substType :: Substitute -> PerlType -> PerlType
 substType ss ty = foldl (flip substType') ty ss
 
 substType' :: SubstituteItem -> PerlType -> PerlType
-substType' (SubstArgs x args) ty = mapType TypeVar substOne ty
-  where
-    substOne an@(RecNamed x' _) = if x == x' then args else an
--- Copied from SubstArgs
-substType' (SubstRecs x args) ty = mapType TypeVar substOne ty
-  where
-    substOne an@(RecNamed x' _) = if x == x' then args else an
+substType' (SubstArgs x args) ty = substTypeByRecs x args ty
+substType' (SubstRecs x args) ty = substTypeByRecs x args ty
 substType' (SubstType v' ty') ty = mapType substOne nop ty
   where
     substOne v = if v == v' then ty' else TypeVar v
 
-substRecs :: Substitute -> PerlRecs Int -> PerlRecs Int
+substTypeByRecs :: (Typeable k, Ord k) =>
+                   RecsVar -> PerlRecs k -> PerlType -> PerlType
+substTypeByRecs x args ty = mapType TypeVar substOne ty
+  where
+    substOne an@(RecNamed x' _) = if x == x' then args else an
+
+substRecs :: Typeable k => Substitute -> PerlRecs k -> PerlRecs k
 substRecs ss ty = foldl (flip substRecs') ty ss
 
-substRecs' :: SubstituteItem -> PerlRecs Int -> PerlRecs Int
-substRecs' (SubstArgs x args) ty = mapRecs TypeVar substOne ty
-  where
-    substOne args'@(RecNamed x' m)
-      | x == x'   = argMerge args m
-      | otherwise = args'
--- Copied from substArgs
-substRecs' (SubstRecs x args) ty = mapRecs TypeVar substOne ty
-  where
-    substOne args'@(RecNamed x' m)
-      | x == x'   = argMerge args m
-      | otherwise = args'
+substRecs' :: Typeable k => SubstituteItem -> PerlRecs k -> PerlRecs k
+substRecs' (SubstArgs x args) ty = substRecsByRecs x args ty
+substRecs' (SubstRecs x args) ty = substRecsByRecs x args ty
 substRecs' (SubstType v' ty') ty = mapRecs substOne nop ty
   where
     substOne v = if v == v' then ty' else TypeVar v
 
--- Copied from substRecs
-substRecsStr :: Substitute -> PerlRecs String -> PerlRecs String
-substRecsStr ss ty = foldl (flip substRecsStr') ty ss
-
--- Copied from substRecs'
-substRecsStr' :: SubstituteItem -> PerlRecs String -> PerlRecs String
-substRecsStr' (SubstArgs x args) ty = mapRecs TypeVar substOne ty
+substRecsByRecs :: (Typeable k, Ord k, Typeable k') =>
+                     RecsVar -> PerlRecs k -> PerlRecs k' -> PerlRecs k'
+substRecsByRecs x args ty = mapRecs TypeVar substOne ty
   where
     substOne args'@(RecNamed x' m)
       | x == x'   = argMerge args m
       | otherwise = args'
-substRecsStr' (SubstType v' ty') ty = mapRecs substOne nop ty
-  where
-    substOne v = if v == v' then ty' else TypeVar v
 
 argMerge :: Ord k => PerlRecs k -> M.Map k PerlType -> PerlRecs k
 argMerge (RecEmpty m) m' = RecEmpty (unsafeUnion m m')

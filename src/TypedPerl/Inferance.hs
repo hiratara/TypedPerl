@@ -216,7 +216,7 @@ substC subst constr = map substConst' constr
         substConst' (EqRecs a b) = EqRecs (substRecsStr' a) (substRecsStr' b)
         substType' = substType subst
         substRecs' = substRecs subst
-        substRecsStr' = substRecsStr subst
+        substRecsStr' = substRecs subst
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = do
