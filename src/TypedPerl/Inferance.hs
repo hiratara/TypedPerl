@@ -199,14 +199,13 @@ typesToConstr m m' = (constraints, deleteKeys sames m', deleteKeys sames m)
 
 elemTypeType :: PerlType -> PerlTypeVars -> Bool
 elemTypeType ty v = getAny $ varsFoldMapType (\v' -> Any (v == v'))
-                                             (const (Any False))
                                              (const (Any False)) ty
 
 elemTypeArgs :: PerlType -> RecsVar -> Bool
 elemTypeArgs ty x = getAny $ varsFoldMapType (const (Any False))
                                              (\(RecNamed x' _) -> Any (x == x'))
-                                             (\(RecNamed x' _) -> Any (x == x'))
                                              ty
+
 elemMapRecs :: M.Map k PerlType -> RecsVar -> Bool
 elemMapRecs m x = or $ map (flip elemTypeArgs x) (M.elems m)
 
