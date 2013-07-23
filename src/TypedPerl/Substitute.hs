@@ -3,6 +3,7 @@ module TypedPerl.Substitute (
   Substitute, SubstituteItem(..), subst
 ) where
 import qualified Data.Map as M
+import TypedPerl.PerlType
 import TypedPerl.Types
 import TypedPerl.Utils
 data SubstituteItem =
@@ -18,24 +19,40 @@ class Substable r where
   subst1 s r = subst [s] r
 
 instance Substable PerlType where
-  subst1 (SubstType v ty) (TypeVar v') | v == v' = ty
-  subst1 s (TypeArg record) = TypeArg (subst1 s record)
-  subst1 s (TypeObj record) = TypeObj (subst1 s record)
-  subst1 s (TypeArrow ty1 ty2) = TypeArrow (subst1 s ty1) (subst1 s ty2)
-  subst1 _ ty = ty
+  subst1 s = foldType (substMapper s)
 
 instance Substable (PerlRecs Int) where
-  subst1 s@(SubstArgs v r) (RecNamed v' m) | v == v' = argMerge r (subst1 s m)
-  subst1 s (RecNamed v m) = RecNamed v (subst1 s m)
-  subst1 s (RecEmpty m) = RecEmpty (subst1 s m)
+  subst1 s = foldRecInt (substMapper s)
 
 instance Substable (PerlRecs String) where
-  subst1 s@(SubstRecs v r) (RecNamed v' m) | v == v' = argMerge r (subst1 s m)
-  subst1 s (RecNamed v m) = RecNamed v (subst1 s m)
-  subst1 s (RecEmpty m) = RecEmpty (subst1 s m)
+  subst1 s = foldRecStr (substMapper s)
 
 instance Substable r => Substable (M.Map k r) where
   subst ss rs = M.map (subst ss) rs
+
+substMapper :: SubstituteItem ->
+               PerlTypeMapper PerlType
+                              (PerlRecs Int)    (M.Map Int PerlType)
+                              (PerlRecs String) (M.Map String PerlType)
+substMapper subs = nopMapper {
+  var = substVar subs
+  , intRecNamed = substRecInt subs
+  , strRecNamed = substRecStr subs
+  }
+
+substVar :: SubstituteItem -> PerlTypeVars -> PerlType
+substVar (SubstType v' ty') v | v' == v = ty'
+substVar _ v = var nopMapper v
+
+substRecInt :: SubstituteItem -> RecsVar -> M.Map Int PerlType
+               -> PerlRecs Int
+substRecInt (SubstArgs v reco) v' m | v == v' = argMerge reco m
+substRecInt _ v m = intRecNamed nopMapper v m
+
+substRecStr :: SubstituteItem -> RecsVar -> M.Map String PerlType
+               -> PerlRecs String
+substRecStr (SubstRecs v reco) v' m | v == v' = argMerge reco m
+substRecStr _ v m = strRecNamed nopMapper v m
 
 argMerge :: Ord k => PerlRecs k -> M.Map k PerlType -> PerlRecs k
 argMerge (RecEmpty m) m' = RecEmpty (unsafeUnion m m')
