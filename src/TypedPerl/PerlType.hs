@@ -1,34 +1,11 @@
 {-# LANGUAGE RankNTypes #-}
 module TypedPerl.PerlType (
-    varsFoldMapType
-    , PerlTypeMapper(..), foldType, foldRecInt, foldRecStr
-    , nopMapper
+    PerlTypeMapper(..), foldType, foldRecInt, foldRecStr
+    , nopMapper, monoidMapper
   ) where
 import qualified Data.Map as M
 import Data.Monoid
 import TypedPerl.Types
-
-varsMapType :: (PerlTypeVars -> a) -> (forall k.PerlRecs k -> a) -> PerlType -> [a]
-varsMapType f _ (TypeVar v) = f v:[]
-varsMapType _ _ (TypeUnknown) = []
-varsMapType _ _ (TypeBuiltin _) = []
-varsMapType f g (TypeArg args) = varsMapRecs f g args
-varsMapType f g (TypeObj ob) = varsMapRecs f g ob
-varsMapType f g (TypeArrow t1 t2) = mapType' t1 ++ mapType' t2
-  where mapType' = varsMapType f g
-
-varsMapRecs :: (PerlTypeVars -> a) -> (forall k.PerlRecs k -> a) -> PerlRecs k' -> [a]
-varsMapRecs f g v@(RecNamed _ m) = g v : varsMapRecsMap f g m
-
-varsMapRecs f g (RecEmpty m) = varsMapRecsMap f g m
-
-varsMapRecsMap :: (PerlTypeVars -> a) -> (forall k.PerlRecs k -> a) ->
-                  M.Map k' PerlType -> [a]
-varsMapRecsMap f g m = concat . map (varsMapType f g) $ M.elems m
-
-varsFoldMapType :: Monoid a =>
-               (PerlTypeVars -> a) -> (forall k.PerlRecs k -> a) -> PerlType -> a
-varsFoldMapType f g = foldr mappend mempty . varsMapType f g
 
 data PerlTypeMapper a b1 b2 c1 c2 = PerlTypeMapper {
   var :: PerlTypeVars -> a
@@ -64,6 +41,24 @@ nopMapper = PerlTypeMapper {
   , strRecNamed = RecNamed
   , strMapItem = M.insert
   , strMapNil = M.empty
+}
+
+monoidMapper :: Monoid a => PerlTypeMapper a a a a a
+monoidMapper = PerlTypeMapper {
+  var = const mempty
+  , unknown = mempty
+  , builtin = const mempty
+  , arg = id
+  , obj = id
+  , arrow = mappend
+  , intRecEmpty = id
+  , intRecNamed = const id
+  , intMapItem = const mappend
+  , intMapNil = mempty
+  , strRecEmpty = id
+  , strRecNamed = const id
+  , strMapItem = const mappend
+  , strMapNil = mempty
 }
 
 foldType :: PerlTypeMapper a b1 b2 c1 c2 -> PerlType -> a
