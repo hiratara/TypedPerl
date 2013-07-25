@@ -1,4 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
 module TypedPerl.PerlType (
     PerlTypeMapper(..), foldType, foldRecInt, foldRecStr
     , nopMapper, monoidMapper
