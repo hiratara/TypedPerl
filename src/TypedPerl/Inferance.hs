@@ -2,6 +2,7 @@ module TypedPerl.Inferance (
   infer
   ) where
 import Data.Monoid
+import TypedPerl.PerlAST
 import TypedPerl.PerlType
 import TypedPerl.Substitute
 import TypedPerl.Types
@@ -37,70 +38,15 @@ buildConstraint t = (ty, cns)
                          (TypeContext {names = typeNames, context = []})
 
 buildConstraint' :: PerlAST -> State TypeContext (PerlType, Constraint)
-buildConstraint' (PerlSubDeclare v t) = do
-  (ty', cns) <- buildConstraint' t
-  modify (\tc -> tc {context = (v, ty'):context tc})
-  return (TypeUnknown, cns)
-buildConstraint' (PerlDeclare v t) = do
-  (ty', cns) <- buildConstraint' t
-  modify (\tc -> tc {context = (v, ty'):context tc})
-  return (ty', cns)
-buildConstraint' (PerlStr _) = return (TypeBuiltin TypeStr, [])
-buildConstraint' (PerlInt _) = return (TypeBuiltin TypeInt, [])
-buildConstraint' (PerlVar v) = do
-  ctx <- gets context
-  case lookup v ctx of
-    Just ty' -> return (ty', [])
-    -- Should report as errors
-    _ -> return (TypeUnknown, [EqType TypeUnknown TypeUnknown])
-buildConstraint' (PerlImplicitItem n) =
-  buildRecordConstraint (PerlVar VarSubImplicit) n EqArgs TypeArg
-buildConstraint' (PerlOp op t1 t2) = do
-  (ty1, c1) <- buildConstraint' t1
-  (ty2, c2) <- buildConstraint' t2
-  return (returnType op,
-          (EqType ty1 $ leftType op):(EqType ty2 $ rightType op):c1 ++ c2)
-buildConstraint' (PerlObj m _) = do
-  answers <- mapM (\(k, t) -> do
-                      (ty, c) <- buildConstraint' t
-                      return ((k, ty), c)) (M.assocs m)
-  let argCols = M.fromList (map fst answers)
-  let constraints = concat $ map snd answers
-  return (TypeObj (RecEmpty argCols), constraints)
-buildConstraint' (PerlObjItem o f) = buildRecordConstraint o f EqRecs TypeObj
-buildConstraint' (PerlAbstract t) = do
-  name <- freshName
-  let newType = TypeVar (TypeNamed name)
-  ctx <- gets context
-  modify (\tc -> tc {context = (VarSubImplicit, newType):ctx})
-  (ty, c) <- (buildConstraint' t)
-  modify (\tc -> tc {context = ctx}) -- restore ctx
-  return (TypeArrow newType ty, c)
-buildConstraint' (PerlApp t1 ts) = do
-    name <- freshName
-    (ty1, c1) <- buildConstraint' t1
-    (ty2, c2) <- buildRecConstraint ts
-    let newType = TypeVar . TypeNamed $ name
-    let c = EqType ty1 (TypeArrow ty2 newType)
-    return (newType, c : c2 ++ c1)
-    where
-      buildRecConstraint ts' = do
-        answers <- mapM buildConstraint' ts'
-        let argCols = M.fromList $ zip [0..] (map fst answers)
-        let constraints = concat $ map snd answers
-        return (TypeArg (RecEmpty argCols), constraints)
-buildConstraint' (PerlSeq t1 t2) = do
-    (_, c1) <- buildConstraint' t1
-    (ty, c2) <- buildConstraint' t2
-    return (ty, c2 ++ c1)
+buildConstraint' ast = foldAST constrMapper ast
 
 buildRecordConstraint :: Ord k =>
-                         PerlAST -> k
+                         ConstrResult -> k
                          -> (PerlRecs k -> PerlRecs k -> ConstraintItem)
                          -> (PerlRecs k -> PerlType)
-                         -> State TypeContext (PerlType, Constraint)
-buildRecordConstraint ast k newconst newrectype = do
-  (ty, c) <- buildConstraint' ast
+                         -> ConstrResult
+buildRecordConstraint mast k newconst newrectype = do
+  (ty, c) <- mast
   name <- freshName
   let newType = TypeVar (TypeNamed name)
   nameRow1 <- freshName
@@ -110,6 +56,85 @@ buildRecordConstraint ast k newconst newrectype = do
   return (newType, (newconst newRow1 newRow2):
                    (EqType ty (newrectype newRow1)):c)
 
+type ConstrResult = State TypeContext (PerlType, Constraint)
+type RecConstrResult = State TypeContext (M.Map String PerlType, Constraint)
+type AppConstrResult = State TypeContext ([PerlType], Constraint)
+constrMapper :: PerlASTMapper ConstrResult RecConstrResult AppConstrResult
+constrMapper = PerlASTMapper {
+  subDeclare = subDeclare'
+  , declare = declare'
+  , int = (const . return) (TypeBuiltin TypeInt, [])
+  , str = (const . return) (TypeBuiltin TypeStr, [])
+  , TypedPerl.PerlAST.var = var'
+  , implicitItem = implicitItem'
+  , op = op'
+  , TypedPerl.PerlAST.obj = obj'
+  , objMapItem = objMapItem'
+  , objMapNil = objMapNil'
+  , objItem = objItem'
+  , abstract = abstract'
+  , app = app'
+  , appListCons = appListCons'
+  , appListNil = appListNil'
+  , TypedPerl.PerlAST.seq = seq'
+  }
+  where
+    subDeclare' v mt =  do
+      (ty', cns) <- mt
+      modify (\tc -> tc {context = (v, ty'):context tc})
+      return (TypeUnknown, cns)
+    declare' v mt = do
+      (ty', cns) <- mt
+      modify (\tc -> tc {context = (v, ty'):context tc})
+      return (ty', cns)
+    var' v =  do
+      ctx <- gets context
+      case lookup v ctx of
+        Just ty' -> return (ty', [])
+        -- Should report as errors
+        _ -> return (TypeUnknown, [EqType TypeUnknown TypeUnknown])
+    implicitItem' n = do
+      let mimp = buildConstraint' (PerlVar VarSubImplicit)
+      buildRecordConstraint mimp n EqArgs TypeArg
+    op' o mt1 mt2 = do
+      (ty1, c1) <- mt1
+      (ty2, c2) <- mt2
+      return (returnType o,
+              (EqType ty1 $ leftType o):(EqType ty2 $ rightType o):c1 ++ c2)
+    obj' mm _ = do
+      (reco, c) <- mm
+      return (TypeObj (RecEmpty reco), c)
+    objMapItem' f mast mrec = do
+      (ty, c) <- mast
+      (reco, c') <- mrec
+      return (M.insert f ty reco, c ++ c')
+    objMapNil' = return (M.empty, [])
+    objItem' mo f = buildRecordConstraint mo f EqRecs TypeObj
+    abstract' mt = do
+      name <- freshName
+      let newType = TypeVar (TypeNamed name)
+      ctx <- gets context
+      modify (\tc -> tc {context = (VarSubImplicit, newType):ctx})
+      (ty, c) <- mt
+      modify (\tc -> tc {context = ctx}) -- restore ctx
+      return (TypeArrow newType ty, c)
+    app' mt1 mts =  do
+      name <- freshName
+      (ty, c1) <- mt1
+      (tys, c2) <- mts
+      let newType = TypeVar . TypeNamed $ name
+      let argRec = RecEmpty (M.fromList (zip [0..] tys))
+      let c = EqType ty (TypeArrow (TypeArg argRec) newType)
+      return (newType, c : c2 ++ c1)
+    appListCons' mast mapp = do
+      (ty, c)<- mast
+      (tys, c') <- mapp
+      return (ty:tys, c ++ c')
+    appListNil' = return ([], [])
+    seq' mt1 mt2 = do
+      (_, c1) <- mt1
+      (ty, c2) <- mt2
+      return (ty, c2 ++ c1)
 
 type TypeError = String
 
@@ -200,7 +225,7 @@ typesToConstr m m' = (constraints, deleteKeys sames m', deleteKeys sames m)
 elemTypeType :: PerlType -> PerlTypeVars -> Bool
 elemTypeType ty v = (getAny . foldType mapper) ty
   where
-    mapper = monoidMapper {var = Any . (v ==)}
+    mapper = monoidMapper {TypedPerl.PerlType.var = Any . (v ==)}
 
 elemTypeArgs :: PerlType -> RecsVar -> Bool
 elemTypeArgs ty v = (getAny . foldType mapper) ty
