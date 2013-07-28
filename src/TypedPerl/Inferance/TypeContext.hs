@@ -3,6 +3,7 @@ module TypedPerl.Inferance.TypeContext (
   TypeContext (..)
   , TypeError
   , freshName
+  , withContext
   , initialTypeContext
   ) where
 import Control.Monad.State.Class
@@ -29,3 +30,11 @@ typeNames = map (('a' :) . show) [(1 :: Integer)..]
 
 initialTypeContext :: TypeContext
 initialTypeContext = TypeContext {names = typeNames, context = []}
+
+withContext :: MonadState TypeContext m =>
+                   (Context -> Context) -> m a -> m a
+withContext f mx = do
+  curCtx <- gets context
+  x <- modify (\tc -> tc {context = (f . context) tc}) >> mx
+  modify (\tc -> tc {context = curCtx})
+  return x

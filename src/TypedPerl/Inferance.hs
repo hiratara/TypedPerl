@@ -88,10 +88,7 @@ constrMapper = PerlASTMapper {
     abstract' mt = do
       name <- freshName
       let newType = TypeVar (TypeNamed name)
-      ctx <- gets context
-      modify (\tc -> tc {context = (VarSubImplicit, newType):ctx})
-      (ty, c) <- mt
-      modify (\tc -> tc {context = ctx}) -- restore ctx
+      (ty, c) <- withContext ((VarSubImplicit, newType) :) mt
       return (TypeArrow newType ty, c)
     app' mt1 mts =  do
       name <- freshName
