@@ -35,15 +35,12 @@ freshName = do
 typeNames :: TypeNames
 typeNames = map (('a' :) . show) [(1 :: Integer)..]
 
-buildConstraint :: PerlAST -> (PerlType, Constraint, TypeContext)
-buildConstraint t = (ty, cns, ctx)
-  where Right ((ty, cns), ctx) = -- TODO: should catch error
-          runStateT (buildConstraint' t)
-                    (TypeContext {names = typeNames, context = []})
+initialTypeContext :: TypeContext
+initialTypeContext = TypeContext {names = typeNames, context = []}
 
-buildConstraint' :: (MonadState TypeContext m, MonadError TypeError m) =>
+buildConstraint :: (MonadState TypeContext m, MonadError TypeError m) =>
                     PerlAST -> m (PerlType, Constraint)
-buildConstraint' ast = foldAST constrMapper ast
+buildConstraint ast = foldAST constrMapper ast
 
 buildRecordConstraint :: (Ord k
                           , MonadState TypeContext m
@@ -100,7 +97,7 @@ constrMapper = PerlASTMapper {
         Just ty' -> return (ty', [])
         _ -> throwError ("Undefined variable " ++ show v)
     implicitItem' n = do
-      let mimp = buildConstraint' (PerlVar VarSubImplicit)
+      let mimp = buildConstraint (PerlVar VarSubImplicit)
       buildRecordConstraint mimp n EqArgs TypeArg
     op' o mt1 mt2 = do
       (ty1, c1) <- mt1
@@ -260,6 +257,6 @@ substC ss constr = map substConst' constr
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = do
-  let (t', c, ctx) = buildConstraint t
+  ((t', c), ctx) <- runStateT (buildConstraint t) initialTypeContext
   s <- evalStateT (unify c) ctx
   return (subst s t')
