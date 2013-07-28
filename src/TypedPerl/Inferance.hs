@@ -254,7 +254,9 @@ substC ss constr = map substConst' constr
         substRecsStr' = subst ss
 
 infer :: PerlAST -> Either TypeError PerlType
-infer t = do
-  ((t', c), ctx) <- runStateT (buildConstraint t) initialTypeContext
-  s <- evalStateT (unify c) ctx
-  return (subst s t')
+infer t = evalStateT inferMain initialTypeContext
+  where
+    inferMain = do
+      (t', c) <- buildConstraint t
+      s <- unify c
+      return (subst s t')
