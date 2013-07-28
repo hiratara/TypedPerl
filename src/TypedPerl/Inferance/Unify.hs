@@ -21,12 +21,12 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
   (t1, t2@TypeUnknown) -> unify ((EqType t2 t1):cs)
   (t1, t2) | t1 == t2 -> unify cs
   (TypeVar v, b@(TypeBuiltin _)) -> do
-    ss <- unify (substC [SubstType v b] cs)
+    ss <- unify (subst [SubstType v b] cs)
     return ((SubstType v b) : ss)
   (TypeVar v, t)
     | not $ t `elemTypeType` v ->
       do let s = SubstType v t
-         ss <- unify (substC (s:[]) cs)
+         ss <- unify (subst (s:[]) cs)
          return (s:ss)
   (t1, t2@(TypeVar _)) -> -- t1 mustn't be TypeVar (See above guard sentences)
     unify ((EqType t2 t1):cs)
@@ -57,7 +57,7 @@ unifyRecs a1 a2 cs newconst newsubst =
     | M.null lackM' ->
        let substs = [newsubst s (RecEmpty lackM)]
            constr = newConstraints ++ cs
-           constr' = substC substs constr
+           constr' = subst substs constr
        in do substs' <- unify constr'
              return (substs ++ substs')
     | otherwise -> throwError (
@@ -75,7 +75,7 @@ unifyRecs a1 a2 cs newconst newsubst =
             , newsubst s' (RecNamed newName lackM')
             ]
       let constr = newConstraints ++ cs
-      let constr' = substC substs constr
+      let constr' = subst substs constr
       substs' <- unify constr'
       return (substs ++ substs')
     where

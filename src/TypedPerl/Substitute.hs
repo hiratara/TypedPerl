@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 module TypedPerl.Substitute (
-  Substitute, SubstituteItem(..), subst
+  Substitute, SubstituteItem(..)
+  , Substable (..)
 ) where
 import qualified Data.Map as M
 import TypedPerl.PerlType
@@ -29,6 +30,9 @@ instance Substable (PerlRecs String) where
 
 instance Substable r => Substable (M.Map k r) where
   subst ss rs = M.map (subst ss) rs
+
+instance Substable r => Substable [r] where
+  subst ss rs = map (subst ss) rs
 
 substMapper :: SubstituteItem ->
                PerlTypeMapper PerlType
