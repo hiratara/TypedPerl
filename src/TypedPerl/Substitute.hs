@@ -28,11 +28,19 @@ instance Substable (PerlRecs Int) where
 instance Substable (PerlRecs String) where
   subst1 s = foldRecStr (substMapper s)
 
+newtype WrappedFunctor f a = WrappedFunctor {unWrap :: f a}
+
+instance (Functor f, Substable r) => Substable (WrappedFunctor f r) where
+  subst ss rs = WrappedFunctor (fmap (subst ss) (unWrap rs))
+
 instance Substable r => Substable (M.Map k r) where
-  subst ss rs = M.map (subst ss) rs
+  subst = substOnFunctor
 
 instance Substable r => Substable [r] where
-  subst ss rs = map (subst ss) rs
+  subst = substOnFunctor
+
+substOnFunctor :: (Functor f, Substable r) => Substitute -> f r -> f r
+substOnFunctor ss = unWrap . subst ss . WrappedFunctor
 
 substMapper :: SubstituteItem ->
                PerlTypeMapper PerlType
