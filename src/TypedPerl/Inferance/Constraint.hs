@@ -10,6 +10,7 @@ data ConstraintItem =
   EqType PerlType PerlType
   | EqArgs (PerlRecs Int) (PerlRecs Int)
   | EqRecs (PerlRecs String) (PerlRecs String)
+  deriving Show
 
 instance Substable ConstraintItem where
   subst ss = substConst'

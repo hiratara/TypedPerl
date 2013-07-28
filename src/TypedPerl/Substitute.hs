@@ -11,6 +11,7 @@ data SubstituteItem =
   SubstType PerlTypeVars PerlType
   | SubstArgs RecsVar (PerlRecs Int)
   | SubstRecs RecsVar (PerlRecs String)
+  deriving Show
 type Substitute = [SubstituteItem]
 
 class Substable r where
