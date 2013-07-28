@@ -1,6 +1,9 @@
+{-# LANGUAGE FlexibleContexts #-}
 module TypedPerl.Inferance (
   infer
   ) where
+import Control.Monad.Error.Class
+import Control.Monad.State.Class
 import Data.Monoid
 import TypedPerl.PerlAST
 import TypedPerl.PerlType
@@ -23,7 +26,7 @@ data TypeContext = TypeContext {
   }
 type TypeNames = [String]
 
-freshName :: State TypeContext String
+freshName :: MonadState TypeContext m => m String
 freshName = do
   name <- gets (head . names)
   modify (\s -> s {names = (tail . names) s})
@@ -32,9 +35,9 @@ freshName = do
 typeNames :: TypeNames
 typeNames = map (('a' :) . show) [(1 :: Integer)..]
 
-buildConstraint :: PerlAST -> (PerlType, Constraint)
-buildConstraint t = (ty, cns)
-  where (ty, cns) = evalState (buildConstraint' t)
+buildConstraint :: PerlAST -> (PerlType, Constraint, TypeContext)
+buildConstraint t = (ty, cns, ctx)
+  where ((ty, cns), ctx) = runState (buildConstraint' t)
                          (TypeContext {names = typeNames, context = []})
 
 buildConstraint' :: PerlAST -> State TypeContext (PerlType, Constraint)
@@ -138,10 +141,11 @@ constrMapper = PerlASTMapper {
 
 type TypeError = String
 
-unify :: Constraint -> Either TypeError Substitute
+unify :: (MonadState TypeContext m, MonadError TypeError m) =>
+         Constraint -> m Substitute
 unify [] = return []
 unify ((EqType type1 type2):cs) = case (type1, type2) of
-  (TypeUnknown, _) -> Left "not defined"
+  (TypeUnknown, _) -> throwError "not defined"
   (t1, t2@TypeUnknown) -> unify ((EqType t2 t1):cs)
   (t1, t2) | t1 == t2 -> unify cs
   (TypeVar v, b@(TypeBuiltin _)) -> do
@@ -158,21 +162,23 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
     unify ((EqType t1 t2):(EqType t1' t2'):cs)
   (TypeArg arg1, TypeArg arg2) -> unify ((EqArgs arg1 arg2):cs)
   (TypeObj obj1, TypeObj obj2) -> unify ((EqRecs obj1 obj2):cs)
-  (t1, t2) -> Left ("Couldn't find answer:" ++ show t1 ++ "==" ++ show t2)
+  (t1, t2) -> throwError (
+                "Couldn't find answer:" ++ show t1 ++ "==" ++ show t2)
 unify ((EqArgs a1 a2):cs) = unifyRecs a1 a2 cs EqArgs SubstArgs
 unify ((EqRecs a1 a2):cs) = unifyRecs a1 a2 cs EqRecs SubstRecs
 
-unifyRecs :: (Show k, Ord k) =>
+unifyRecs :: (Show k, Ord k,
+              MonadState TypeContext m, MonadError TypeError m) =>
              PerlRecs k -> PerlRecs k -> Constraint
              -> (PerlRecs k -> PerlRecs k -> ConstraintItem)
              -> (RecsVar -> PerlRecs k -> SubstituteItem)
-             -> Either TypeError Substitute
+             -> m Substitute
 unifyRecs a1 a2 cs newconst newsubst =
   isntRecursive a1 a2 >> case (a1, a2) of
   (RecEmpty m, RecEmpty m')
     | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
-    | otherwise -> Left ("Don't match rows of const arguments:"
-                         ++ show m ++ "," ++ show m')
+    | otherwise -> throwError ("Don't match rows of const arguments:"
+                               ++ show m ++ "," ++ show m')
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
   (RecNamed s m, RecEmpty m')
@@ -182,35 +188,37 @@ unifyRecs a1 a2 cs newconst newsubst =
            constr' = substC substs constr
        in do substs' <- unify constr'
              return (substs ++ substs')
-    | otherwise -> Left ("Oops, " ++ show m' ++ " has other keys:" ++ show m)
+    | otherwise -> throwError (
+                     "Oops, " ++ show m' ++ " has other keys:" ++ show m)
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
   (RecEmpty _, RecNamed _ _) -> unify ((newconst a2 a1):cs)
   (RecNamed s m, RecNamed s' m')
     -- Should I check if m or m' is empty?
     | s == s' -> unify (newconst (RecEmpty m) (RecEmpty m'):cs)
-    | otherwise ->
-      let newName = s ++ "'" -- TODO: It's not new name!
-          substs = [
+    | otherwise -> do
+      newName <- freshName
+      let substs = [
             newsubst s (RecNamed newName lackM)
             , newsubst s' (RecNamed newName lackM')
             ]
-          constr = newConstraints ++ cs
-          constr' = substC substs constr
-      in do substs' <- unify constr'
-            return (substs ++ substs')
+      let constr = newConstraints ++ cs
+      let constr' = substC substs constr
+      substs' <- unify constr'
+      return (substs ++ substs')
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
 
-isntRecursive :: PerlRecs k -> PerlRecs k -> Either TypeError ()
+isntRecursive :: (MonadState TypeContext m, MonadError TypeError m) =>
+                 PerlRecs k -> PerlRecs k -> m ()
 isntRecursive a b = isntRecursive' a b >> isntRecursive' b a
   where
     isntRecursive' (RecEmpty _) _ = return ()
     isntRecursive' (RecNamed n _) (RecEmpty m) =
-      if elemMapRecs m n then Left ("recursive row variable " ++ n)
+      if elemMapRecs m n then throwError ("recursive row variable " ++ n)
                          else return ()
     isntRecursive' (RecNamed n _) (RecNamed _ m) =
-      if elemMapRecs m n then Left ("recursive row variable " ++ n)
+      if elemMapRecs m n then throwError ("recursive row variable " ++ n)
                          else return ()
 
 typesToConstr :: Ord k => M.Map k PerlType -> M.Map k PerlType ->
@@ -249,6 +257,6 @@ substC ss constr = map substConst' constr
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = do
-  let (t', c) = buildConstraint t
-  s <- unify c
+  let (t', c, ctx) = buildConstraint t
+  s <- evalStateT (unify c) ctx
   return (subst s t')
