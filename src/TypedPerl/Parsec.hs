@@ -1,11 +1,9 @@
 module TypedPerl.Parsec where
-import Control.Monad
 import Data.Char
 import qualified Data.Map as M
 import Text.Parsec
 import TypedPerl.Builtins
 import TypedPerl.Types
-import Debug.Trace (traceShow)
 
 type PerlParserBase r = Parsec String PerlState r
 type PerlParser = PerlParserBase PerlAST
