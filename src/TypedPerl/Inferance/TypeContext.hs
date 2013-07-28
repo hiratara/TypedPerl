@@ -2,11 +2,13 @@
 module TypedPerl.Inferance.TypeContext (
   TypeContext (..)
   , TypeError
-  , freshName
+  , freshType, freshRec
   , withContext
   , initialTypeContext
   ) where
+import Control.Monad
 import Control.Monad.State.Class
+import qualified Data.Map as M
 import TypedPerl.Types
 
 type Context = [(PerlVars, PerlType)]
@@ -24,6 +26,12 @@ freshName = do
   name <- gets (head . names)
   modify (\s -> s {names = (tail . names) s})
   return name
+
+freshType :: MonadState TypeContext m => m PerlType
+freshType = liftM (TypeVar . TypeNamed) freshName
+
+freshRec :: MonadState TypeContext m => m (PerlRecs k)
+freshRec = liftM (flip RecNamed M.empty) freshName
 
 typeNames :: TypeNames
 typeNames = map (('a' :) . show) [(1 :: Integer)..]

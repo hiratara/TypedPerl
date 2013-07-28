@@ -18,8 +18,8 @@ data PerlTypeVars =
 
 type RecsVar = String
 data PerlRecs k =
-  RecEmpty (M.Map k PerlType)
-  | RecNamed RecsVar (M.Map k PerlType)
+  RecEmpty {recMap :: M.Map k PerlType}
+  | RecNamed {recName :: RecsVar, recMap :: M.Map k PerlType}
   deriving (Show, Eq)
 
 data PerlTypeBuiltins =

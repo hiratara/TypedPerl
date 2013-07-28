@@ -69,10 +69,10 @@ unifyRecs a1 a2 cs newconst newsubst =
     -- Should I check if m or m' is empty?
     | s == s' -> unify (newconst (RecEmpty m) (RecEmpty m'):cs)
     | otherwise -> do
-      newName <- freshName
+      newRec <- freshRec
       let substs = [
-            newsubst s (RecNamed newName lackM)
-            , newsubst s' (RecNamed newName lackM')
+            newsubst s (newRec {recMap = (M.union (recMap newRec) lackM)})
+            , newsubst s' (newRec {recMap = (M.union (recMap newRec) lackM')})
             ]
       let constr = newConstraints ++ cs
       let constr' = subst substs constr

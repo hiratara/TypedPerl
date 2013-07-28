@@ -25,14 +25,13 @@ buildRecordConstraint :: (Ord k
                          -> m (PerlType, Constraint)
 buildRecordConstraint mast k newconst newrectype = do
   (ty, c) <- mast
-  name <- freshName
-  let newType = TypeVar (TypeNamed name)
-  nameRow1 <- freshName
-  let newRow1 = RecNamed nameRow1 M.empty
-  nameRow2 <- freshName
-  let newRow2 = RecNamed nameRow2 (M.fromList [(k, newType)])
+  newType <- freshType
+  newRow1 <- freshRec
+  newRow2 <- liftM (unionRec (M.fromList [(k, newType)])) freshRec
   return (newType, (newconst newRow1 newRow2):
                    (EqType ty (newrectype newRow1)):c)
+  where
+    unionRec m r = r {recMap = (M.union (recMap r) m)}
 
 constrMapper :: (MonadState TypeContext m, MonadError TypeError m) =>
                 PerlASTMapper (m (PerlType, Constraint))
@@ -86,15 +85,13 @@ constrMapper = PerlASTMapper {
     objMapNil' = return (M.empty, [])
     objItem' mo f = buildRecordConstraint mo f EqRecs TypeObj
     abstract' mt = do
-      name <- freshName
-      let newType = TypeVar (TypeNamed name)
+      newType <- freshType
       (ty, c) <- withContext ((VarSubImplicit, newType) :) mt
       return (TypeArrow newType ty, c)
     app' mt1 mts =  do
-      name <- freshName
       (ty, c1) <- mt1
       (tys, c2) <- mts
-      let newType = TypeVar . TypeNamed $ name
+      newType <- freshType
       let argRec = RecEmpty (M.fromList (zip [0..] tys))
       let c = EqType ty (TypeArrow (TypeArg argRec) newType)
       return (newType, c : c2 ++ c1)
