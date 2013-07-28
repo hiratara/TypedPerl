@@ -39,6 +39,9 @@ instance Substable r => Substable (M.Map k r) where
 instance Substable r => Substable [r] where
   subst = substOnFunctor
 
+instance (Substable r2) => Substable (r1, r2) where
+  subst = substOnFunctor
+
 substOnFunctor :: (Functor f, Substable r) => Substitute -> f r -> f r
 substOnFunctor ss = unWrap . subst ss . WrappedFunctor
 
