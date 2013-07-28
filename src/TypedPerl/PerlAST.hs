@@ -13,7 +13,7 @@ data PerlASTMapper a b c = PerlASTMapper {
   , int :: Integer -> a
   , str :: String -> a
   , var :: PerlVars -> a
-  , implicitItem :: Int -> a
+  , implicitItem :: a -> Int -> a
   , op :: PerlBinOp -> a -> a -> a
   , obj :: b -> String -> a
   , objMapItem :: String -> a -> b -> b
@@ -52,7 +52,7 @@ foldAST m (PerlDeclare v ast) = declare m v (foldAST m ast)
 foldAST m (PerlInt n) = int m n
 foldAST m (PerlStr s) = str m s
 foldAST m (PerlVar v) = var m v
-foldAST m (PerlImplicitItem n) = implicitItem m n
+foldAST m (PerlImplicitItem ast n) = implicitItem m (foldAST m ast) n
 foldAST m (PerlOp o ast1 ast2) = op m o (foldAST m ast1) (foldAST m ast2)
 foldAST m (PerlObj ma s) = obj m (foldObjMap m ma) s
 foldAST m (PerlObjItem ast1 s) = objItem m (foldAST m ast1) s

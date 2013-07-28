@@ -195,7 +195,7 @@ parserImplicitVar = do
   string "$_[" >> spaces
   c <- many1 digit
   spaces >> char ']'
-  return (PerlImplicitItem (read c))
+  return (PerlImplicitItem (PerlVar VarSubImplicit) (read c))
 
 uAlphabetChars :: String
 uAlphabetChars = '_' : [toEnum (fromEnum 'A' + n) | n <- [0 .. 25]]

@@ -40,6 +40,7 @@ tests = TestList [
   , (TestCase $ do
       let Right t = parsePerl "sub { $_[0]->{def} }"
       assertEqual "Field access" t
-        (PerlAbstract (PerlObjItem (PerlImplicitItem 0) "def"))
+        (PerlAbstract (PerlObjItem
+                       (PerlImplicitItem (PerlVar VarSubImplicit) 0) "def"))
   )
   ]

@@ -55,7 +55,7 @@ data PerlAST =
   | PerlInt Integer
   | PerlStr String
   | PerlVar PerlVars
-  | PerlImplicitItem Int
+  | PerlImplicitItem PerlAST Int
   | PerlOp PerlBinOp PerlAST PerlAST
   | PerlObj (M.Map String PerlAST) String
   | PerlObjItem PerlAST String
@@ -99,7 +99,7 @@ showPerlAST :: PerlAST -> String
 showPerlAST (PerlInt n) = show n
 showPerlAST (PerlStr x) = show x -- This is, though, Haskell's literal
 showPerlAST (PerlVar t) = showPerlVars t
-showPerlAST (PerlImplicitItem n) = "$_[" ++ show n ++ "]"
+showPerlAST (PerlImplicitItem _ n) = "$_[" ++ show n ++ "]"
 showPerlAST (PerlDeclare v t) = "my " ++ (showPerlVars v) ++
                                    " = (" ++ showPerlAST t ++ ")"
 showPerlAST (PerlSubDeclare (VarSub s) (PerlAbstract t)) =

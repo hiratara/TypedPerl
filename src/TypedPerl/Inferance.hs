@@ -96,9 +96,7 @@ constrMapper = PerlASTMapper {
       case lookup v ctx of
         Just ty' -> return (ty', [])
         _ -> throwError ("Undefined variable " ++ show v)
-    implicitItem' n = do
-      let mimp = buildConstraint (PerlVar VarSubImplicit)
-      buildRecordConstraint mimp n EqArgs TypeArg
+    implicitItem' ast n = buildRecordConstraint ast n EqArgs TypeArg
     op' o mt1 mt2 = do
       (ty1, c1) <- mt1
       (ty2, c2) <- mt2
