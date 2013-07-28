@@ -2,6 +2,7 @@
 module TypedPerl.Substitute (
   Substitute, SubstituteItem(..)
   , Substable (..)
+  , compSubst
 ) where
 import qualified Data.Map as M
 import TypedPerl.PerlType
@@ -27,6 +28,13 @@ instance Substable (PerlRecs Int) where
 
 instance Substable (PerlRecs String) where
   subst1 s = foldRecStr (substMapper s)
+
+instance Substable (SubstituteItem) where
+  subst ss = substSubst'
+    where
+      substSubst' (SubstType v ty) = SubstType v (subst ss ty)
+      substSubst' (SubstArgs v reco) = SubstArgs v (subst ss reco)
+      substSubst' (SubstRecs v reco) = SubstRecs v (subst ss reco)
 
 newtype WrappedFunctor f a = WrappedFunctor {unWrap :: f a}
 
@@ -75,3 +83,6 @@ unsafeUnion m m' =
   if sameKeys m m' == []
      then M.union m m'
      else error "[BUG]2 other maps found"
+
+compSubst :: Substitute -> Substitute -> Substitute
+compSubst s2 s1 = s2 ++ (subst s2 s1)
