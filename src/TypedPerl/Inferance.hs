@@ -10,6 +10,7 @@ import TypedPerl.Substitute
 import TypedPerl.Types
 import Control.Monad.State
 import Control.Monad.Error.Class
+import Data.Monoid
 import TypedPerl.PerlAST
 import qualified Data.Map as M
 
@@ -57,14 +58,14 @@ constrMapper = PerlASTMapper {
   }
   where
     subDeclare' v mt =  do
-      (ty, (cns, s)) <- mt
-      s' <- unifyUnsolvedConstr (cns, s)
+      (ty, cns) <- mt
+      s' <- unifyUnsolvedConstr cns
       let ty' = subst s' ty
       modify (\tc -> tc {context = (v, ty'):context tc})
       return (TypeUnknown, ([], s'))
     declare' v mt = do
-      (ty, (cns, s)) <- mt
-      s' <- unifyUnsolvedConstr (cns, s)
+      (ty, cns) <- mt
+      s' <- unifyUnsolvedConstr cns
       let ty' = subst s' ty
       modify (\tc -> tc {context = (v, ty'):context tc})
       return (ty', ([], s'))
@@ -75,45 +76,45 @@ constrMapper = PerlASTMapper {
         _ -> throwError ("Undefined variable " ++ show v)
     implicitItem' ast n = buildRecordConstraint ast n EqArgs TypeArg
     op' o mt1 mt2 = do
-      (ty1, (c1, s1)) <- mt1
-      (ty2, (c2, s2)) <- mt2
+      (ty1, cns1) <- mt1
+      (ty2, cns2) <- mt2
       return (returnType o
-              , ((EqType ty1 $ leftType o):(EqType ty2 $ rightType o):c1 ++ c2
-                 , s1 ++ s2))
+              , ((EqType ty1 $ leftType o):(EqType ty2 $ rightType o):[], [])
+                <> cns1 <> cns2)
     obj' mm _ = do
-      (reco, (c, s)) <- mm
-      return (TypeObj (RecEmpty reco), (c, s))
+      (reco, cns) <- mm
+      return (TypeObj (RecEmpty reco), cns)
     objMapItem' f mast mrec = do
-      (ty, (c, s)) <- mast
-      (reco, (c', s')) <- mrec
-      return (M.insert f ty reco, (c ++ c', s ++ s'))
+      (ty, cns) <- mast
+      (reco, cns') <- mrec
+      return (M.insert f ty reco, cns <> cns')
     objMapNil' = return (M.empty, ([], []))
     objItem' mo f = buildRecordConstraint mo f EqRecs TypeObj
     abstract' mt = do
       newType <- freshType
-      (ty, (c, s)) <- withContext ((VarSubImplicit, newType) :) mt
-      return (TypeArrow newType ty, (c, s))
+      (ty, cns) <- withContext ((VarSubImplicit, newType) :) mt
+      return (TypeArrow newType ty, cns)
     app' mt1 mts =  do
-      (ty, (c1, s1)) <- mt1
-      (tys, (c2, s2)) <- mts
+      (ty, cns1) <- mt1
+      (tys, cns2) <- mts
       newType <- freshType
       let argRec = RecEmpty (M.fromList (zip [0..] tys))
       let c = EqType ty (TypeArrow (TypeArg argRec) newType)
-      return (newType, (c : c2 ++ c1, s1 ++ s2))
+      return (newType, (([c], []) <> cns2 <> cns1))
     appListCons' mast mapp = do
-      (ty, (c, s))<- mast
-      (tys, (c', s')) <- mapp
-      return (ty:tys, (c ++ c', s ++ s'))
+      (ty, cns)<- mast
+      (tys, cns') <- mapp
+      return (ty:tys, cns <> cns')
     appListNil' = return ([], ([], []))
     seq' mt1 mt2 = do
-      (_, (c1, s1)) <- mt1
-      (ty, (c2, s2)) <- mt2
-      return (ty, (c2 ++ c1, s2 ++ s1))
+      (_, cns1) <- mt1
+      (ty, cns2) <- mt2
+      return (ty, cns2 <> cns1)
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = evalStateT inferMain initialTypeContext
   where
     inferMain = do
-      (t', (c, s)) <- buildConstraint t
-      s' <- unifyUnsolvedConstr (c, s)
+      (t', cns) <- buildConstraint t
+      s' <- unifyUnsolvedConstr cns
       return (subst s' t')
