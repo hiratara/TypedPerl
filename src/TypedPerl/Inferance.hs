@@ -2,41 +2,15 @@
 module TypedPerl.Inferance (
   infer
   ) where
-import Control.Monad.Error.Class
-import Control.Monad.State.Class
-import Data.Monoid
-import TypedPerl.PerlAST
-import TypedPerl.PerlType
+import TypedPerl.Inferance.Constraint
+import TypedPerl.Inferance.TypeContext
+import TypedPerl.Inferance.Unify
 import TypedPerl.Substitute
 import TypedPerl.Types
-import TypedPerl.Utils
 import Control.Monad.State
+import Control.Monad.Error.Class
+import TypedPerl.PerlAST
 import qualified Data.Map as M
-import Debug.Trace
-
-type Constraint = [ConstraintItem]
-data ConstraintItem =
-  EqType PerlType PerlType
-  | EqArgs (PerlRecs Int) (PerlRecs Int)
-  | EqRecs (PerlRecs String) (PerlRecs String)
-type Context = [(PerlVars, PerlType)]
-data TypeContext = TypeContext {
-  names :: TypeNames
-  , context :: Context
-  }
-type TypeNames = [String]
-
-freshName :: MonadState TypeContext m => m String
-freshName = do
-  name <- gets (head . names)
-  modify (\s -> s {names = (tail . names) s})
-  return name
-
-typeNames :: TypeNames
-typeNames = map (('a' :) . show) [(1 :: Integer)..]
-
-initialTypeContext :: TypeContext
-initialTypeContext = TypeContext {names = typeNames, context = []}
 
 buildConstraint :: (MonadState TypeContext m, MonadError TypeError m) =>
                     PerlAST -> m (PerlType, Constraint)
@@ -136,122 +110,6 @@ constrMapper = PerlASTMapper {
       (_, c1) <- mt1
       (ty, c2) <- mt2
       return (ty, c2 ++ c1)
-
-type TypeError = String
-
-unify :: (MonadState TypeContext m, MonadError TypeError m) =>
-         Constraint -> m Substitute
-unify [] = return []
-unify ((EqType type1 type2):cs) = case (type1, type2) of
-  (TypeUnknown, _) -> throwError "not defined"
-  (t1, t2@TypeUnknown) -> unify ((EqType t2 t1):cs)
-  (t1, t2) | t1 == t2 -> unify cs
-  (TypeVar v, b@(TypeBuiltin _)) -> do
-    ss <- unify (substC [SubstType v b] cs)
-    return ((SubstType v b) : ss)
-  (TypeVar v, t)
-    | not $ t `elemTypeType` v ->
-      do let s = SubstType v t
-         ss <- unify (substC (s:[]) cs)
-         return (s:ss)
-  (t1, t2@(TypeVar _)) -> -- t1 mustn't be TypeVar (See above guard sentences)
-    unify ((EqType t2 t1):cs)
-  (TypeArrow t1 t1', TypeArrow t2 t2') ->
-    unify ((EqType t1 t2):(EqType t1' t2'):cs)
-  (TypeArg arg1, TypeArg arg2) -> unify ((EqArgs arg1 arg2):cs)
-  (TypeObj obj1, TypeObj obj2) -> unify ((EqRecs obj1 obj2):cs)
-  (t1, t2) -> throwError (
-                "Couldn't find answer:" ++ show t1 ++ "==" ++ show t2)
-unify ((EqArgs a1 a2):cs) = unifyRecs a1 a2 cs EqArgs SubstArgs
-unify ((EqRecs a1 a2):cs) = unifyRecs a1 a2 cs EqRecs SubstRecs
-
-unifyRecs :: (Show k, Ord k,
-              MonadState TypeContext m, MonadError TypeError m) =>
-             PerlRecs k -> PerlRecs k -> Constraint
-             -> (PerlRecs k -> PerlRecs k -> ConstraintItem)
-             -> (RecsVar -> PerlRecs k -> SubstituteItem)
-             -> m Substitute
-unifyRecs a1 a2 cs newconst newsubst =
-  isntRecursive a1 a2 >> case (a1, a2) of
-  (RecEmpty m, RecEmpty m')
-    | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
-    | otherwise -> throwError ("Don't match rows of const arguments:"
-                               ++ show m ++ "," ++ show m')
-    where
-      (newConstraints, lackM, lackM') = typesToConstr m m'
-  (RecNamed s m, RecEmpty m')
-    | M.null lackM' ->
-       let substs = [newsubst s (RecEmpty lackM)]
-           constr = newConstraints ++ cs
-           constr' = substC substs constr
-       in do substs' <- unify constr'
-             return (substs ++ substs')
-    | otherwise -> throwError (
-                     "Oops, " ++ show m' ++ " has other keys:" ++ show m)
-    where
-      (newConstraints, lackM, lackM') = typesToConstr m m'
-  (RecEmpty _, RecNamed _ _) -> unify ((newconst a2 a1):cs)
-  (RecNamed s m, RecNamed s' m')
-    -- Should I check if m or m' is empty?
-    | s == s' -> unify (newconst (RecEmpty m) (RecEmpty m'):cs)
-    | otherwise -> do
-      newName <- freshName
-      let substs = [
-            newsubst s (RecNamed newName lackM)
-            , newsubst s' (RecNamed newName lackM')
-            ]
-      let constr = newConstraints ++ cs
-      let constr' = substC substs constr
-      substs' <- unify constr'
-      return (substs ++ substs')
-    where
-      (newConstraints, lackM, lackM') = typesToConstr m m'
-
-isntRecursive :: (MonadState TypeContext m, MonadError TypeError m) =>
-                 PerlRecs k -> PerlRecs k -> m ()
-isntRecursive a b = isntRecursive' a b >> isntRecursive' b a
-  where
-    isntRecursive' (RecEmpty _) _ = return ()
-    isntRecursive' (RecNamed n _) (RecEmpty m) =
-      if elemMapRecs m n then throwError ("recursive row variable " ++ n)
-                         else return ()
-    isntRecursive' (RecNamed n _) (RecNamed _ m) =
-      if elemMapRecs m n then throwError ("recursive row variable " ++ n)
-                         else return ()
-
-typesToConstr :: Ord k => M.Map k PerlType -> M.Map k PerlType ->
-                 (Constraint, M.Map k PerlType, M.Map k PerlType)
-typesToConstr m m' = (constraints, deleteKeys sames m', deleteKeys sames m)
-  where
-    constraints = map (\k -> EqType (unsafeLookup k m) (unsafeLookup k m'))
-                      sames
-    sames = sameKeys m m'
-    unsafeLookup k m'' = let Just v = M.lookup k m'' in v
-
-elemTypeType :: PerlType -> PerlTypeVars -> Bool
-elemTypeType ty v = (getAny . foldType mapper) ty
-  where
-    mapper = monoidMapper {TypedPerl.PerlType.var = Any . (v ==)}
-
-elemTypeArgs :: PerlType -> RecsVar -> Bool
-elemTypeArgs ty v = (getAny . foldType mapper) ty
-  where
-    mapper = monoidMapper {
-      intRecNamed = mappend . Any . (v ==)
-      , strRecNamed = mappend . Any . (v ==)
-      }
-
-elemMapRecs :: M.Map k PerlType -> RecsVar -> Bool
-elemMapRecs m x = or $ map (flip elemTypeArgs x) (M.elems m)
-
-substC :: Substitute -> Constraint -> Constraint
-substC ss constr = map substConst' constr
-  where substConst' (EqType a b) = EqType (substType' a) (substType' b)
-        substConst' (EqArgs a b) = EqArgs (substRecs' a) (substRecs' b)
-        substConst' (EqRecs a b) = EqRecs (substRecsStr' a) (substRecsStr' b)
-        substType' = subst ss
-        substRecs' = subst ss
-        substRecsStr' = subst ss
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = evalStateT inferMain initialTypeContext
