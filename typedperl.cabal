@@ -75,6 +75,7 @@ library
                   , TypedPerl.Utils
                   , TypedPerl.Sample
                   , TypedPerl.PerlAST
+                  , TypedPerl.PerlRecs
                   , TypedPerl.PerlType
                   , TypedPerl.Builtins
   build-depends:  base >=4.5 && < 5

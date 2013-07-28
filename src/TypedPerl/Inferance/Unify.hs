@@ -7,6 +7,7 @@ import Control.Monad.State.Class
 import Data.Monoid
 import TypedPerl.Inferance.Constraint
 import TypedPerl.Inferance.TypeContext
+import TypedPerl.PerlRecs
 import TypedPerl.PerlType
 import TypedPerl.Substitute
 import TypedPerl.Types
@@ -71,8 +72,8 @@ unifyRecs a1 a2 cs newconst newsubst =
     | otherwise -> do
       newRec <- freshRec
       let substs = [
-            newsubst s (newRec {recMap = (M.union (recMap newRec) lackM)})
-            , newsubst s' (newRec {recMap = (M.union (recMap newRec) lackM')})
+            newsubst s (unionRec lackM newRec)
+            , newsubst s' (unionRec lackM' newRec)
             ]
       let constr = newConstraints ++ cs
       let constr' = subst substs constr

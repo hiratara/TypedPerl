@@ -5,6 +5,7 @@ module TypedPerl.Inferance (
 import TypedPerl.Inferance.Constraint
 import TypedPerl.Inferance.TypeContext
 import TypedPerl.Inferance.Unify
+import TypedPerl.PerlRecs
 import TypedPerl.Substitute
 import TypedPerl.Types
 import Control.Monad.State
@@ -30,8 +31,6 @@ buildRecordConstraint mast k newconst newrectype = do
   newRow2 <- liftM (unionRec (M.fromList [(k, newType)])) freshRec
   return (newType, (newconst newRow1 newRow2):
                    (EqType ty (newrectype newRow1)):c)
-  where
-    unionRec m r = r {recMap = (M.union (recMap r) m)}
 
 constrMapper :: (MonadState TypeContext m, MonadError TypeError m) =>
                 PerlASTMapper (m (PerlType, Constraint))
