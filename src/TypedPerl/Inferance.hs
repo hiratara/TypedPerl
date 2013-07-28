@@ -37,17 +37,21 @@ typeNames = map (('a' :) . show) [(1 :: Integer)..]
 
 buildConstraint :: PerlAST -> (PerlType, Constraint, TypeContext)
 buildConstraint t = (ty, cns, ctx)
-  where ((ty, cns), ctx) = runState (buildConstraint' t)
-                         (TypeContext {names = typeNames, context = []})
+  where Right ((ty, cns), ctx) = -- TODO: should catch error
+          runStateT (buildConstraint' t)
+                    (TypeContext {names = typeNames, context = []})
 
-buildConstraint' :: PerlAST -> State TypeContext (PerlType, Constraint)
+buildConstraint' :: (MonadState TypeContext m, MonadError TypeError m) =>
+                    PerlAST -> m (PerlType, Constraint)
 buildConstraint' ast = foldAST constrMapper ast
 
-buildRecordConstraint :: Ord k =>
-                         ConstrResult -> k
+buildRecordConstraint :: (Ord k
+                          , MonadState TypeContext m
+                          , MonadError TypeError m) =>
+                         m (PerlType, Constraint) -> k
                          -> (PerlRecs k -> PerlRecs k -> ConstraintItem)
                          -> (PerlRecs k -> PerlType)
-                         -> ConstrResult
+                         -> m (PerlType, Constraint)
 buildRecordConstraint mast k newconst newrectype = do
   (ty, c) <- mast
   name <- freshName
@@ -59,10 +63,10 @@ buildRecordConstraint mast k newconst newrectype = do
   return (newType, (newconst newRow1 newRow2):
                    (EqType ty (newrectype newRow1)):c)
 
-type ConstrResult = State TypeContext (PerlType, Constraint)
-type RecConstrResult = State TypeContext (M.Map String PerlType, Constraint)
-type AppConstrResult = State TypeContext ([PerlType], Constraint)
-constrMapper :: PerlASTMapper ConstrResult RecConstrResult AppConstrResult
+constrMapper :: (MonadState TypeContext m, MonadError TypeError m) =>
+                PerlASTMapper (m (PerlType, Constraint))
+                              (m (M.Map String PerlType, Constraint))
+                              (m ([PerlType], Constraint))
 constrMapper = PerlASTMapper {
   subDeclare = subDeclare'
   , declare = declare'
@@ -94,8 +98,7 @@ constrMapper = PerlASTMapper {
       ctx <- gets context
       case lookup v ctx of
         Just ty' -> return (ty', [])
-        -- Should report as errors
-        _ -> return (TypeUnknown, [EqType TypeUnknown TypeUnknown])
+        _ -> throwError ("Undefined variable " ++ show v)
     implicitItem' n = do
       let mimp = buildConstraint' (PerlVar VarSubImplicit)
       buildRecordConstraint mimp n EqArgs TypeArg

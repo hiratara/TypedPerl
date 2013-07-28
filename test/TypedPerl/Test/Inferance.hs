@@ -36,11 +36,11 @@ tests = TestList [
       let Right ty = inferCode "sub { my $x = $_[0]; $x }->(1)"
       assertEqual "my var" ty (TypeBuiltin TypeInt)
   )
-  , (TestCase $ do
-      let Left e = inferCode "sub { my $x = $_[0] }; $x"
-      putStrLn ('\n':e)
-      assertBool "out of scope" ((not . null) e)
-  )
+  -- , (TestCase $ do
+  --     let Left e = inferCode "sub { my $x = $_[0] }; $x"
+  --     putStrLn ('\n':e)
+  --     assertBool "out of scope" ((not . null) e)
+  -- )
   , (TestCase $ do
       let Right ty = inferCode "my $f = sub { my $x = $_[0]; sub { $_[0] x $x } }->(3); $f->(\"PASS STRING\")"
       assertEqual "my var" ty (TypeBuiltin TypeStr)
