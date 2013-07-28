@@ -42,7 +42,17 @@ initialTypeContext = TypeContext {names = typeNames, context = []}
 withContext :: MonadState TypeContext m =>
                    (Context -> Context) -> m a -> m a
 withContext f mx = do
-  curCtx <- gets context
+  curKeys <- liftM (map fst) (gets context)
   x <- modify (\tc -> tc {context = (f . context) tc}) >> mx
-  modify (\tc -> tc {context = curCtx})
+  resultCtx <- gets context
+  modify (\tc -> tc {context = dropByTailKeys curKeys resultCtx})
   return x
+
+dropByTailKeys :: Eq k => [k] -> [(k, v)] -> [(k, v)]
+dropByTailKeys ks assoc = reverse $ dropByTailKeys' (reverse ks)
+                                                    (reverse assoc)
+  where
+    dropByTailKeys' [] _ = []
+    dropByTailKeys' (k':ks') ((k, v):as)
+      | k' == k = (k, v):dropByTailKeys' ks' as
+    dropByTailKeys' _ _ = error "[BUG]Don't touch existed Contexts"
