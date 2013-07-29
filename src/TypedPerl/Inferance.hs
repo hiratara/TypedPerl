@@ -41,8 +41,8 @@ constrMapper :: (MonadState TypeContext m, MonadError TypeError m) =>
 constrMapper = PerlASTMapper {
   subDeclare = subDeclare'
   , declare = declare'
-  , int = (const . return) (TypeBuiltin TypeInt, ([], []))
-  , str = (const . return) (TypeBuiltin TypeStr, ([], []))
+  , int = (const . return) (TypeBuiltin TypeInt, emptyConstr)
+  , str = (const . return) (TypeBuiltin TypeStr, emptyConstr)
   , TypedPerl.PerlAST.var = var'
   , implicitItem = implicitItem'
   , op = op'
@@ -59,28 +59,29 @@ constrMapper = PerlASTMapper {
   where
     subDeclare' v mt =  do
       (ty, cns) <- mt
-      s' <- unifyUnsolvedConstr cns
-      let ty' = subst s' ty
+      cns' <- unifyUnsolvedConstr cns
+      let ty' = subst (snd cns') ty
       modify (\tc -> tc {context = (v, ty'):context tc})
-      return (TypeUnknown, ([], s'))
+      return (TypeUnknown, cns')
     declare' v mt = do
       (ty, cns) <- mt
-      s' <- unifyUnsolvedConstr cns
-      let ty' = subst s' ty
+      cns' <- unifyUnsolvedConstr cns
+      let ty' = subst (snd cns') ty
       modify (\tc -> tc {context = (v, ty'):context tc})
-      return (ty', ([], s'))
+      return (ty', cns')
     var' v =  do
       ctx <- gets context
       case lookup v ctx of
-        Just ty' -> return (ty', ([], []))
+        Just ty' -> return (ty', emptyConstr)
         _ -> throwError ("Undefined variable " ++ show v)
     implicitItem' ast n = buildRecordConstraint ast n EqArgs TypeArg
     op' o mt1 mt2 = do
       (ty1, cns1) <- mt1
       (ty2, cns2) <- mt2
       return (returnType o
-              , ((EqType ty1 $ leftType o):(EqType ty2 $ rightType o):[], [])
-                <> cns1 <> cns2)
+              , (EqType ty1 $ leftType o)
+                `addConstr` (EqType ty2 $ rightType o)
+                `addConstr` cns1 <> cns2)
     obj' mm _ = do
       (reco, cns) <- mm
       return (TypeObj (RecEmpty reco), cns)
@@ -88,7 +89,7 @@ constrMapper = PerlASTMapper {
       (ty, cns) <- mast
       (reco, cns') <- mrec
       return (M.insert f ty reco, cns <> cns')
-    objMapNil' = return (M.empty, ([], []))
+    objMapNil' = return (M.empty, emptyConstr)
     objItem' mo f = buildRecordConstraint mo f EqRecs TypeObj
     abstract' mt = do
       newType <- freshType
@@ -100,12 +101,12 @@ constrMapper = PerlASTMapper {
       newType <- freshType
       let argRec = RecEmpty (M.fromList (zip [0..] tys))
       let c = EqType ty (TypeArrow (TypeArg argRec) newType)
-      return (newType, (([c], []) <> cns2 <> cns1))
+      return (newType, (c `addConstr` cns2 <> cns1))
     appListCons' mast mapp = do
       (ty, cns)<- mast
       (tys, cns') <- mapp
       return (ty:tys, cns <> cns')
-    appListNil' = return ([], ([], []))
+    appListNil' = return ([], emptyConstr)
     seq' mt1 mt2 = do
       (_, cns1) <- mt1
       (ty, cns2) <- mt2
@@ -116,5 +117,5 @@ infer t = evalStateT inferMain initialTypeContext
   where
     inferMain = do
       (t', cns) <- buildConstraint t
-      s' <- unifyUnsolvedConstr cns
-      return (subst s' t')
+      cns' <- unifyUnsolvedConstr cns
+      return (subst (snd cns') t')
