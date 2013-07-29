@@ -61,18 +61,18 @@ constrMapper = PerlASTMapper {
       (ty, cns) <- mt
       cns' <- unifyUnsolvedConstr cns
       let ty' = subst (snd cns') ty
-      modify (\tc -> tc {context = (v, ty'):context tc})
+      modify (\tc -> tc {context = (v, asCType ty'):context tc})
       return (TypeUnknown, cns')
     declare' v mt = do
       (ty, cns) <- mt
       cns' <- unifyUnsolvedConstr cns
       let ty' = subst (snd cns') ty
-      modify (\tc -> tc {context = (v, ty'):context tc})
+      modify (\tc -> tc {context = (v, asCType ty'):context tc})
       return (ty', cns')
     var' v =  do
       ctx <- gets context
       case lookup v ctx of
-        Just ty' -> return (ty', emptyConstr)
+        Just ty' -> return (getType ty', emptyConstr)
         _ -> throwError ("Undefined variable " ++ show v)
     implicitItem' ast n = buildRecordConstraint ast n EqArgs TypeArg
     op' o mt1 mt2 = do
@@ -93,7 +93,7 @@ constrMapper = PerlASTMapper {
     objItem' mo f = buildRecordConstraint mo f EqRecs TypeObj
     abstract' mt = do
       newType <- freshType
-      (ty, cns) <- withContext ((VarSubImplicit, newType) :) mt
+      (ty, cns) <- withContext ((VarSubImplicit, asCType newType) :) mt
       return (TypeArrow newType ty, cns)
     app' mt1 mts =  do
       (ty, cns1) <- mt1

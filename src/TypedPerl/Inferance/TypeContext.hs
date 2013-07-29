@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module TypedPerl.Inferance.TypeContext (
   TypeContext (..)
+  , PerlCType (..), asCType
   , TypeError
   , freshType, freshRec
   , withContext
@@ -11,7 +12,8 @@ import Control.Monad.State.Class
 import qualified Data.Map as M
 import TypedPerl.Types
 
-type Context = [(PerlVars, PerlType)]
+data PerlCType = PerlForall {getVars :: [PerlVars], getType :: PerlType}
+type Context = [(PerlVars, PerlCType)]
 
 type TypeError = String
 
@@ -20,6 +22,9 @@ data TypeContext = TypeContext {
   , context :: Context
   }
 type TypeNames = [String]
+
+asCType :: PerlType -> PerlCType
+asCType = PerlForall []
 
 freshName :: MonadState TypeContext m => m String
 freshName = do
