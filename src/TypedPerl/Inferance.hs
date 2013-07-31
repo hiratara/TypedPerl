@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, TupleSections #-}
 module TypedPerl.Inferance (
   infer
   ) where
@@ -72,7 +72,7 @@ constrMapper = PerlASTMapper {
     var' v =  do
       ctx <- gets context
       case lookup v ctx of
-        Just ty' -> return (getType ty', emptyConstr)
+        Just ty' -> liftM (, emptyConstr) (extractCType ty')
         _ -> throwError ("Undefined variable " ++ show v)
     implicitItem' ast n = buildRecordConstraint ast n EqArgs TypeArg
     op' o mt1 mt2 = do
