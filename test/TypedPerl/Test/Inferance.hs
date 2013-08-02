@@ -101,4 +101,8 @@ tests = TestList [
       putStrLn ('\n':e)
       assertBool "y-combinater" ((not . null) e)
   )
+  , (TestCase $ do
+      let Right ty = inferCode "my $x = sub { $_[0] }; $x->(\"\",0); $x->(0);"
+      assertEqual "complicated codes" ty (TypeBuiltin TypeInt)
+  )
   ]

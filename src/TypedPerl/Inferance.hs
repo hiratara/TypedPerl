@@ -59,16 +59,14 @@ constrMapper = PerlASTMapper {
   where
     subDeclare' v mt =  do
       (ty, cns) <- mt
-      cns' <- unifyUnsolvedConstr cns
-      let ty' = subst (snd cns') ty
-      modify (\tc -> tc {context = (v, asCType ty'):context tc})
+      (cTy, cns') <- buildTypeSchema (ty, cns)
+      modify (\tc -> tc {context = (v, cTy):context tc})
       return (TypeUnknown, cns')
     declare' v mt = do
       (ty, cns) <- mt
-      cns' <- unifyUnsolvedConstr cns
-      let ty' = subst (snd cns') ty
-      modify (\tc -> tc {context = (v, asCType ty'):context tc})
-      return (ty', cns')
+      (cTy, cns') <- buildTypeSchema (ty, cns)
+      modify (\tc -> tc {context = (v, cTy):context tc})
+      liftM (, cns') (extractCType cTy)
     var' v =  do
       ctx <- gets context
       case lookup v ctx of
@@ -111,6 +109,14 @@ constrMapper = PerlASTMapper {
       (_, cns1) <- mt1
       (ty, cns2) <- mt2
       return (ty, cns2 <> cns1)
+    buildTypeSchema (ty, cns) = do
+      cns' <- unifyUnsolvedConstr cns
+
+      -- Update all types by substitution
+      modify (\ctx -> ctx {context = subst (snd cns') (context ctx)})
+      let ty' = subst (snd cns') ty
+
+      liftM (, cns') (liftM (flip asCTypeSchema ty') (gets context))
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = evalStateT inferMain initialTypeContext
