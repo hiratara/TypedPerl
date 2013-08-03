@@ -68,6 +68,7 @@ library
   exposed-modules:  TypedPerl.Types
                   , TypedPerl.Substitute
                   , TypedPerl.Inferance
+                  , TypedPerl.Inferance.Builtins
                   , TypedPerl.Inferance.Constraint
                   , TypedPerl.Inferance.TypeContext
                   , TypedPerl.Inferance.Unify

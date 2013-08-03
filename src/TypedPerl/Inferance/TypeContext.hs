@@ -1,11 +1,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 module TypedPerl.Inferance.TypeContext (
-  TypeContext (..)
+  TypeContext (..), TypeNames, Context
   , PerlCType (..), asCType, asCTypeSchema, extractCType
   , TypeError
   , freshType, freshRec
   , withContext
-  , initialTypeContext
   ) where
 import Control.Monad
 import Control.Monad.State.Class
@@ -43,12 +42,6 @@ freshType = liftM (TypeVar . TypeNamed) freshName
 
 freshRec :: MonadState TypeContext m => m (PerlRecs k)
 freshRec = liftM (flip RecNamed M.empty) freshName
-
-typeNames :: TypeNames
-typeNames = map (('a' :) . show) [(1 :: Integer)..]
-
-initialTypeContext :: TypeContext
-initialTypeContext = TypeContext {names = typeNames, context = []}
 
 withContext :: MonadState TypeContext m =>
                    (Context -> Context) -> m a -> m a
