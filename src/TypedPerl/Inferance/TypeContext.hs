@@ -86,16 +86,13 @@ minusVarSet (rvs1, vs1) (rvs2, vs2) = (rvs1 S.\\ rvs2, vs1 S.\\ vs2)
 
 extractCType :: MonadState TypeContext m => PerlCType -> m PerlType
 extractCType (PerlForall (vs, rvs) ty) = do
-  vNames <- S.foldr (\v mm -> do m <- mm
-                                 n <- freshName
-                                 return (M.insert v (TypeNamed n) m))
-                    (return M.empty) vs
-  rvNames <- S.foldr (\v mm -> do m <- mm
-                                  v' <- freshName
-                                  return (M.insert v v' m))
-                     (return M.empty) rvs
+  vNames <- S.foldr (walk TypeNamed) (return M.empty) vs
+  rvNames <- S.foldr (walk id) (return M.empty) rvs
   return (foldType (mapper vNames rvNames) ty)
   where
+    walk typing v mm = do
+      n <- freshName
+      liftM (M.insert v (typing n)) mm
     mapper vNames rvNames = nopMapper {
       var = var' vNames
       , strRecNamed = strRecNamed' rvNames
