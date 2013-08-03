@@ -32,12 +32,12 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
     (s :) `liftM` unify (subst1 s cs)
   (TypeVar v, b@(TypeBuiltin _)) -> do
     ss <- unify (subst [SubstType v b] cs)
-    return ((SubstType v b) : ss)
+    return ((SubstType v b) `addSubst` ss)
   (TypeVar v, t)
     | not $ t `elemTypeType` v ->
       do let s = SubstType v t
-         ss <- unify (subst (s:[]) cs)
-         return (s:ss)
+         ss <- unify (subst1 s cs)
+         return (s `addSubst` ss)
   (t1, t2@(TypeVar _)) -> -- t1 mustn't be TypeVar (See above guard sentences)
     unify ((EqType t2 t1):cs)
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
@@ -69,7 +69,7 @@ unifyRecs a1 a2 cs newconst newsubst =
            constr = newConstraints ++ cs
            constr' = subst substs constr
        in do substs' <- unify constr'
-             return (substs ++ substs')
+             return (substs `compSubst` substs')
     | otherwise -> throwError (
                      "Oops, " ++ show m' ++ " has other keys:" ++ show m)
     where
@@ -87,7 +87,7 @@ unifyRecs a1 a2 cs newconst newsubst =
       let constr = newConstraints ++ cs
       let constr' = subst substs constr
       substs' <- unify constr'
-      return (substs ++ substs')
+      return (substs `compSubst` substs')
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
 

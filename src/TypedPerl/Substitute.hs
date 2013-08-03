@@ -2,7 +2,7 @@
 module TypedPerl.Substitute (
   Substitute, SubstituteItem(..)
   , Substitutable (..)
-  , compSubst
+  , compSubst, addSubst
 ) where
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -100,4 +100,7 @@ unsafeUnion m m' =
      else error "[BUG]2 other maps found"
 
 compSubst :: Substitute -> Substitute -> Substitute
-compSubst s2 s1 = s2 ++ (subst s2 s1)
+compSubst = flip (foldr addSubst)
+
+addSubst :: SubstituteItem -> Substitute -> Substitute
+addSubst s1 ss = s1 : (subst1 s1 ss)
