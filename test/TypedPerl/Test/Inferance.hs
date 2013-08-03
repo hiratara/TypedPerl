@@ -112,7 +112,7 @@ tests = TestList [
       assertEqual "complicated codes" ty (TypeBuiltin TypeInt)
   )
   , (TestCase $ do
-      let ty = inferCodeRight "my $x = sub { print($_[0]) }; $x->(\"Hello\"); print(\", \"); $x->(999)"
+      let ty = inferCodeRight "my $x = sub { print($_[0]) }; $x->(\"Hello\"); print(\", \"); $x->(999); 1"
       assertEqual "complicated codes" ty (TypeBuiltin TypeInt)
   )
   ]

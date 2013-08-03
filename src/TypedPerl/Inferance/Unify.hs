@@ -3,6 +3,7 @@ module TypedPerl.Inferance.Unify (
   unify
   , unifyUnsolvedConstr
   ) where
+import Control.Monad
 import Control.Monad.Error.Class
 import Control.Monad.State.Class
 import Data.Monoid
@@ -25,9 +26,10 @@ unify :: (MonadState TypeContext m, MonadError TypeError m) =>
          Constraint -> m Substitute
 unify [] = return []
 unify ((EqType type1 type2):cs) = case (type1, type2) of
-  (TypeUnknown, _) -> throwError "not defined"
-  (t1, t2@TypeUnknown) -> unify ((EqType t2 t1):cs)
   (t1, t2) | t1 == t2 -> unify cs
+  (TypeVar v, TypeUnknown) -> do
+    let s = SubstType v TypeUnknown
+    (s :) `liftM` unify (subst1 s cs)
   (TypeVar v, b@(TypeBuiltin _)) -> do
     ss <- unify (subst [SubstType v b] cs)
     return ((SubstType v b) : ss)
