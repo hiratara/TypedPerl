@@ -1,9 +1,11 @@
 {-# LANGUAGE FlexibleInstances #-}
 module TypedPerl.Substitute (
   Substitute, SubstituteItem(..)
-  , Substable (..)
+  , Substitutable (..)
+  , compSubst
 ) where
 import qualified Data.Map as M
+import TypedPerl.Inferance.TypeContext
 import TypedPerl.PerlType
 import TypedPerl.Types
 import TypedPerl.Utils
@@ -14,36 +16,47 @@ data SubstituteItem =
   deriving Show
 type Substitute = [SubstituteItem]
 
-class Substable r where
+class Substitutable r where
   subst :: Substitute -> r -> r
   subst ss r = foldl (flip subst1) r ss
   subst1 :: SubstituteItem -> r -> r
   subst1 s r = subst [s] r
 
-instance Substable PerlType where
+instance Substitutable PerlType where
   subst1 s = foldType (substMapper s)
 
-instance Substable (PerlRecs Int) where
+instance Substitutable (PerlRecs Int) where
   subst1 s = foldRecInt (substMapper s)
 
-instance Substable (PerlRecs String) where
+instance Substitutable (PerlRecs String) where
   subst1 s = foldRecStr (substMapper s)
+
+instance Substitutable (SubstituteItem) where
+  subst ss = substSubst'
+    where
+      substSubst' (SubstType v ty) = SubstType v (subst ss ty)
+      substSubst' (SubstArgs v reco) = SubstArgs v (subst ss reco)
+      substSubst' (SubstRecs v reco) = SubstRecs v (subst ss reco)
+
+instance Substitutable PerlCType where
+  subst s (PerlForall vs ty) = PerlForall vs (subst s ty)
 
 newtype WrappedFunctor f a = WrappedFunctor {unWrap :: f a}
 
-instance (Functor f, Substable r) => Substable (WrappedFunctor f r) where
-  subst ss rs = WrappedFunctor (fmap (subst ss) (unWrap rs))
+instance (Functor f, Substitutable r) => Substitutable (WrappedFunctor f r)
+  where
+    subst ss rs = WrappedFunctor (fmap (subst ss) (unWrap rs))
 
-instance Substable r => Substable (M.Map k r) where
+instance Substitutable r => Substitutable (M.Map k r) where
   subst = substOnFunctor
 
-instance Substable r => Substable [r] where
+instance Substitutable r => Substitutable [r] where
   subst = substOnFunctor
 
-instance (Substable r2) => Substable (r1, r2) where
+instance Substitutable r => Substitutable (a, r) where
   subst = substOnFunctor
 
-substOnFunctor :: (Functor f, Substable r) => Substitute -> f r -> f r
+substOnFunctor :: (Functor f, Substitutable r) => Substitute -> f r -> f r
 substOnFunctor ss = unWrap . subst ss . WrappedFunctor
 
 substMapper :: SubstituteItem ->
@@ -79,3 +92,6 @@ unsafeUnion m m' =
   if sameKeys m m' == []
      then M.union m m'
      else error "[BUG]2 other maps found"
+
+compSubst :: Substitute -> Substitute -> Substitute
+compSubst s2 s1 = s2 ++ (subst s2 s1)

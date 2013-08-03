@@ -14,7 +14,7 @@ import qualified Data.Map as M
 
 data PerlTypeVars =
   TypeNamed String
-  deriving (Show, Eq)
+  deriving (Show, Eq, Ord)
 
 type RecsVar = String
 data PerlRecs k =

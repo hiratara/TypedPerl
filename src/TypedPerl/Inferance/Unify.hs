@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 module TypedPerl.Inferance.Unify (
   unify
+  , unifyUnsolvedConstr
   ) where
 import Control.Monad.Error.Class
 import Control.Monad.State.Class
@@ -13,6 +14,12 @@ import TypedPerl.Substitute
 import TypedPerl.Types
 import TypedPerl.Utils
 import qualified Data.Map as M
+
+unifyUnsolvedConstr  :: (MonadState TypeContext m, MonadError TypeError m) =>
+              UnsolvedConstr -> m UnsolvedConstr
+unifyUnsolvedConstr (c, s) = do
+  s' <- unify (subst s c)
+  return ([], (compSubst s' s))
 
 unify :: (MonadState TypeContext m, MonadError TypeError m) =>
          Constraint -> m Substitute

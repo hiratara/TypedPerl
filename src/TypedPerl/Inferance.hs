@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts, TupleSections #-}
 module TypedPerl.Inferance (
   infer
   ) where
@@ -10,37 +10,39 @@ import TypedPerl.Substitute
 import TypedPerl.Types
 import Control.Monad.State
 import Control.Monad.Error.Class
+import Data.Monoid
 import TypedPerl.PerlAST
 import qualified Data.Map as M
 
 buildConstraint :: (MonadState TypeContext m, MonadError TypeError m) =>
-                    PerlAST -> m (PerlType, Constraint)
+                    PerlAST -> m (PerlType, UnsolvedConstr)
 buildConstraint ast = foldAST constrMapper ast
 
 buildRecordConstraint :: (Ord k
                           , MonadState TypeContext m
                           , MonadError TypeError m) =>
-                         m (PerlType, Constraint) -> k
+                         m (PerlType, UnsolvedConstr) -> k
                          -> (PerlRecs k -> PerlRecs k -> ConstraintItem)
                          -> (PerlRecs k -> PerlType)
-                         -> m (PerlType, Constraint)
+                         -> m (PerlType, UnsolvedConstr)
 buildRecordConstraint mast k newconst newrectype = do
-  (ty, c) <- mast
+  (ty, (c, s)) <- mast
   newType <- freshType
   newRow1 <- freshRec
   newRow2 <- liftM (unionRec (M.fromList [(k, newType)])) freshRec
-  return (newType, (newconst newRow1 newRow2):
-                   (EqType ty (newrectype newRow1)):c)
+  return (newType
+          , ((newconst newRow1 newRow2):(EqType ty (newrectype newRow1)):c
+             , s))
 
 constrMapper :: (MonadState TypeContext m, MonadError TypeError m) =>
-                PerlASTMapper (m (PerlType, Constraint))
-                              (m (M.Map String PerlType, Constraint))
-                              (m ([PerlType], Constraint))
+                PerlASTMapper (m (PerlType, UnsolvedConstr))
+                              (m (M.Map String PerlType, UnsolvedConstr))
+                              (m ([PerlType], UnsolvedConstr))
 constrMapper = PerlASTMapper {
   subDeclare = subDeclare'
   , declare = declare'
-  , int = (const . return) (TypeBuiltin TypeInt, [])
-  , str = (const . return) (TypeBuiltin TypeStr, [])
+  , int = (const . return) (TypeBuiltin TypeInt, emptyConstr)
+  , str = (const . return) (TypeBuiltin TypeStr, emptyConstr)
   , TypedPerl.PerlAST.var = var'
   , implicitItem = implicitItem'
   , op = op'
@@ -56,58 +58,70 @@ constrMapper = PerlASTMapper {
   }
   where
     subDeclare' v mt =  do
-      (ty', cns) <- mt
-      modify (\tc -> tc {context = (v, ty'):context tc})
-      return (TypeUnknown, cns)
+      (ty, cns) <- mt
+      (cTy, cns') <- buildTypeSchema (ty, cns)
+      modify (\tc -> tc {context = (v, cTy):context tc})
+      return (TypeUnknown, cns')
     declare' v mt = do
-      (ty', cns) <- mt
-      modify (\tc -> tc {context = (v, ty'):context tc})
-      return (ty', cns)
+      (ty, cns) <- mt
+      (cTy, cns') <- buildTypeSchema (ty, cns)
+      modify (\tc -> tc {context = (v, cTy):context tc})
+      liftM (, cns') (extractCType cTy)
     var' v =  do
       ctx <- gets context
       case lookup v ctx of
-        Just ty' -> return (ty', [])
+        Just ty' -> liftM (, emptyConstr) (extractCType ty')
         _ -> throwError ("Undefined variable " ++ show v)
     implicitItem' ast n = buildRecordConstraint ast n EqArgs TypeArg
     op' o mt1 mt2 = do
-      (ty1, c1) <- mt1
-      (ty2, c2) <- mt2
-      return (returnType o,
-              (EqType ty1 $ leftType o):(EqType ty2 $ rightType o):c1 ++ c2)
+      (ty1, cns1) <- mt1
+      (ty2, cns2) <- mt2
+      return (returnType o
+              , (EqType ty1 $ leftType o)
+                `addConstr` (EqType ty2 $ rightType o)
+                `addConstr` cns1 <> cns2)
     obj' mm _ = do
-      (reco, c) <- mm
-      return (TypeObj (RecEmpty reco), c)
+      (reco, cns) <- mm
+      return (TypeObj (RecEmpty reco), cns)
     objMapItem' f mast mrec = do
-      (ty, c) <- mast
-      (reco, c') <- mrec
-      return (M.insert f ty reco, c ++ c')
-    objMapNil' = return (M.empty, [])
+      (ty, cns) <- mast
+      (reco, cns') <- mrec
+      return (M.insert f ty reco, cns <> cns')
+    objMapNil' = return (M.empty, emptyConstr)
     objItem' mo f = buildRecordConstraint mo f EqRecs TypeObj
     abstract' mt = do
       newType <- freshType
-      (ty, c) <- withContext ((VarSubImplicit, newType) :) mt
-      return (TypeArrow newType ty, c)
+      (ty, cns) <- withContext ((VarSubImplicit, asCType newType) :) mt
+      return (TypeArrow newType ty, cns)
     app' mt1 mts =  do
-      (ty, c1) <- mt1
-      (tys, c2) <- mts
+      (ty, cns1) <- mt1
+      (tys, cns2) <- mts
       newType <- freshType
       let argRec = RecEmpty (M.fromList (zip [0..] tys))
       let c = EqType ty (TypeArrow (TypeArg argRec) newType)
-      return (newType, c : c2 ++ c1)
+      return (newType, (c `addConstr` cns2 <> cns1))
     appListCons' mast mapp = do
-      (ty, c)<- mast
-      (tys, c') <- mapp
-      return (ty:tys, c ++ c')
-    appListNil' = return ([], [])
+      (ty, cns)<- mast
+      (tys, cns') <- mapp
+      return (ty:tys, cns <> cns')
+    appListNil' = return ([], emptyConstr)
     seq' mt1 mt2 = do
-      (_, c1) <- mt1
-      (ty, c2) <- mt2
-      return (ty, c2 ++ c1)
+      (_, cns1) <- mt1
+      (ty, cns2) <- mt2
+      return (ty, cns2 <> cns1)
+    buildTypeSchema (ty, cns) = do
+      cns' <- unifyUnsolvedConstr cns
+
+      -- Update all types by substitution
+      modify (\ctx -> ctx {context = subst (snd cns') (context ctx)})
+      let ty' = subst (snd cns') ty
+
+      liftM (, cns') (liftM (flip asCTypeSchema ty') (gets context))
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = evalStateT inferMain initialTypeContext
   where
     inferMain = do
-      (t', c) <- buildConstraint t
-      s <- unify c
-      return (subst s t')
+      (t', cns) <- buildConstraint t
+      cns' <- unifyUnsolvedConstr cns
+      return (subst (snd cns') t')
