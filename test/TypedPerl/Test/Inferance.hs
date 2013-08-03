@@ -23,7 +23,7 @@ tests :: Test
 tests = TestList [
   (TestCase $ do
       let ty = inferCodeRight "1"
-      assertEqual "int" ty (TypeBuiltin TypeInt)
+      assertEqual "int" (TypeBuiltin TypeInt) ty
   )
   -- TODO: our parser can't parse start with empty sentences
   -- , (TestCase $ do
@@ -32,15 +32,15 @@ tests = TestList [
   -- )
   , (TestCase $ do
       let ty = inferCodeRight "sub { 1 }->()"
-      assertEqual "int(no args)" ty (TypeBuiltin TypeInt)
+      assertEqual "int(no args)" (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let ty = inferCodeRight "sub { $_[0] }->(1)"
-      assertEqual "int" ty (TypeBuiltin TypeInt)
+      assertEqual "int" (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let ty = inferCodeRight "sub { my $x = $_[0]; $x }->(1)"
-      assertEqual "my var" ty (TypeBuiltin TypeInt)
+      assertEqual "my var" (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let e = inferCodeLeft "sub { my $x = $_[0] }; $x"
@@ -49,11 +49,11 @@ tests = TestList [
   )
   , (TestCase $ do
       let ty = inferCodeRight "my $f = sub { my $x = $_[0]; sub { $_[0] x $x } }->(3); $f->(\"PASS STRING\")"
-      assertEqual "my var" ty (TypeBuiltin TypeStr)
+      assertEqual "my var" (TypeBuiltin TypeStr) ty
   )
   , (TestCase $ do
       let ty = inferCodeRight "sub x { 1 }"
-      assertEqual "decrare is statement" ty TypeUnknown
+      assertEqual "decrare is statement" TypeUnknown ty
   )
   , (TestCase $ do
       let e = inferCodeLeft "sub x { sub y { 1 }; $_[0] }"
@@ -62,23 +62,23 @@ tests = TestList [
   )
   , (TestCase $ do
       let ty = inferCodeRight "sub add { $_[0] + 2 } add(3)"
-      assertEqual "Declare subroutin and call it" ty (TypeBuiltin TypeInt)
+      assertEqual "Declare subroutin and call it" (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let ty = inferCodeRight "sub add { $_[0] + 2 }; add(3)"
-      assertEqual "Sub-dec with semi-collon" ty (TypeBuiltin TypeInt)
+      assertEqual "Sub-dec with semi-collon" (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let ty = inferCodeRight "sub {$_[0]->(0) + 0}->(sub {$_[0]})"
-      assertEqual "decrare is statement" ty (TypeBuiltin TypeInt)
+      assertEqual "decrare is statement" (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let ty = inferCodeRight "sub { $_[1] }->(\"\", 2)"
-      assertEqual "2 args" ty (TypeBuiltin TypeInt)
+      assertEqual "2 args" (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let ty = inferCodeRight "sub { $_[1] }->(\"\", 2, 3)"
-      assertEqual "more args are O.K." ty (TypeBuiltin TypeInt)
+      assertEqual "more args are O.K." (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let e = inferCodeLeft "sub { $_[1] }->(\"\")"
@@ -87,7 +87,7 @@ tests = TestList [
   )
   , (TestCase $ do
       let ty = inferCodeRight "(bless {abc => 3}, \"X\")->{abc}"
-      assertEqual "field access" ty (TypeBuiltin TypeInt)
+      assertEqual "field access" (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let e = inferCodeLeft "(bless {abc => 3}, \"X\")->{def}"
@@ -96,11 +96,11 @@ tests = TestList [
   )
   , (TestCase $ do
       let ty = inferCodeRight "sub new { bless {name => \"abcde\"}, \"Person\" }\nsub name { $_[0]->{name} }\nname(new());"
-      assertEqual "complicated codes" ty (TypeBuiltin TypeStr)
+      assertEqual "complicated codes" (TypeBuiltin TypeStr) ty
   )
   , (TestCase $ do
       let ty = inferCodeRight "my $x = bless {x => \"x\"}, \"Person\"; $x->{x}"
-      assertEqual "complicated codes" ty (TypeBuiltin TypeStr)
+      assertEqual "complicated codes" (TypeBuiltin TypeStr) ty
   )
   , (TestCase $ do
       let e = inferCodeLeft "sub { my $f = $_[0]; my $g = sub { $f->($_[0]->($_[0])); }; $g->($g); }"
@@ -109,10 +109,10 @@ tests = TestList [
   )
   , (TestCase $ do
       let ty = inferCodeRight "my $x = sub { $_[0] }; $x->(\"\",0); $x->(0);"
-      assertEqual "complicated codes" ty (TypeBuiltin TypeInt)
+      assertEqual "complicated codes" (TypeBuiltin TypeInt) ty
   )
   , (TestCase $ do
       let ty = inferCodeRight "my $x = sub { print($_[0]) }; $x->(\"Hello\"); print(\", \"); $x->(999); 1"
-      assertEqual "complicated codes" ty (TypeBuiltin TypeInt)
+      assertEqual "complicated codes" (TypeBuiltin TypeInt) ty
   )
   ]
