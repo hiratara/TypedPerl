@@ -5,6 +5,7 @@ module TypedPerl.Substitute (
   , compSubst
 ) where
 import qualified Data.Map as M
+import qualified Data.Set as S
 import TypedPerl.Inferance.TypeContext
 import TypedPerl.PerlType
 import TypedPerl.Types
@@ -39,7 +40,12 @@ instance Substitutable (SubstituteItem) where
       substSubst' (SubstRecs v reco) = SubstRecs v (subst ss reco)
 
 instance Substitutable PerlCType where
-  subst s (PerlForall vs ty) = PerlForall vs (subst s ty)
+  subst s (PerlForall vs ty) = PerlForall vs (subst s' ty)
+    where s' = filter ((not .) (contained vs)) s
+          contained (tvs, rvs) item = case item of
+            SubstType v _ -> v `S.member` tvs
+            SubstArgs v _ -> v `S.member` rvs
+            SubstRecs v _ -> v `S.member` rvs
 
 newtype WrappedFunctor f a = WrappedFunctor {unWrap :: f a}
 
