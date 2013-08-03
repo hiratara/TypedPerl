@@ -21,7 +21,7 @@ infixr 6 `addConstr`
 addConstr :: ConstraintItem -> UnsolvedConstr -> UnsolvedConstr
 addConstr c (c', s) = (c:c', s)
 
-instance Substable ConstraintItem where
+instance Substitutable ConstraintItem where
   subst ss = substConst'
     where
       substConst' (EqType a b) = EqType (subst ss a) (subst ss b)
