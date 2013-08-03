@@ -18,6 +18,7 @@ import TypedPerl.PerlType
 type VarSet = (S.Set PerlTypeVars, S.Set RecsVar)
 
 data PerlCType = PerlForall VarSet PerlType
+                 deriving (Show, Eq)
 type Context = [(PerlVars, PerlCType)]
 
 type TypeError = String
