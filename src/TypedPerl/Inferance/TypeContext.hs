@@ -11,11 +11,12 @@ import Control.Monad
 import Control.Monad.State.Class
 import qualified Data.Map as M
 import Data.Monoid
+import qualified Data.Set as S
 import TypedPerl.Types
 import TypedPerl.PerlType
 import TypedPerl.Substitute
 
-type VarSet = ([PerlTypeVars], [RecsVar])
+type VarSet = (S.Set PerlTypeVars, S.Set RecsVar)
 
 data PerlCType = PerlForall VarSet PerlType
 type Context = [(PerlVars, PerlCType)]
@@ -29,7 +30,7 @@ data TypeContext = TypeContext {
 type TypeNames = [String]
 
 asCType :: PerlType -> PerlCType
-asCType = PerlForall ([], [])
+asCType = PerlForall (S.empty, S.empty)
 
 freshName :: MonadState TypeContext m => m String
 freshName = do
@@ -70,9 +71,9 @@ freeVar ty = foldType mapper ty
       , intRecNamed = intRecNamed'
       , strRecNamed = strRecNamed'
       }
-    var' v = (v:[], [])
-    intRecNamed' rv vss = ([], rv:[]) <> vss
-    strRecNamed' rv vss = ([], rv:[]) <> vss
+    var' v = (S.singleton v, S.empty)
+    intRecNamed' rv vss = (S.empty, S.singleton rv) <> vss
+    strRecNamed' rv vss = (S.empty, S.singleton rv) <> vss
 
 freeVarInCType :: PerlCType -> VarSet
 freeVarInCType (PerlForall vs ty) = freeVar ty `minusVarSet` vs
@@ -81,20 +82,18 @@ freeVarInContext :: Context -> VarSet -- TODO: Simplify
 freeVarInContext ctx = foldr (\x y -> y `mappend` (freeVarInCType . snd $ x)) mempty ctx
 
 minusVarSet :: VarSet -> VarSet -> VarSet
-minusVarSet (rvs1, vs1) (rvs2, vs2) = (minus rvs1 rvs2, minus vs1 vs2)
-  where
-    minus xs ys = filter (not . (`elem` ys)) xs
+minusVarSet (rvs1, vs1) (rvs2, vs2) = (rvs1 S.\\ rvs2, vs1 S.\\ vs2)
 
 extractCType :: MonadState TypeContext m => PerlCType -> m PerlType
 extractCType (PerlForall (vs, rvs) ty) = do
-  vNames <- foldr (\v mm -> do m <- mm
-                               n <- freshName
-                               return (M.insert v (TypeNamed n) m))
-                  (return M.empty) vs
-  rvNames <- foldr (\v mm -> do m <- mm
-                                v' <- freshName
-                                return (M.insert v v' m))
-                  (return M.empty) rvs
+  vNames <- S.foldr (\v mm -> do m <- mm
+                                 n <- freshName
+                                 return (M.insert v (TypeNamed n) m))
+                    (return M.empty) vs
+  rvNames <- S.foldr (\v mm -> do m <- mm
+                                  v' <- freshName
+                                  return (M.insert v v' m))
+                     (return M.empty) rvs
   return (foldType (mapper vNames rvNames) ty)
   where
     mapper vNames rvNames = nopMapper {
@@ -103,13 +102,13 @@ extractCType (PerlForall (vs, rvs) ty) = do
       , intRecNamed = intRecNamed' rvNames
       }
     var' vNames v
-      | v `elem` vs = var nopMapper (vNames M.! v)
+      | v `S.member` vs = var nopMapper (vNames M.! v)
       | otherwise = var nopMapper v
     strRecNamed' rvNames v mmap
-      | v `elem` rvs = strRecNamed nopMapper (rvNames M.! v) mmap
+      | v `S.member` rvs = strRecNamed nopMapper (rvNames M.! v) mmap
       | otherwise = strRecNamed nopMapper v mmap
     intRecNamed' rvNames v mmap
-      | v `elem` rvs = intRecNamed nopMapper (rvNames M.! v) mmap
+      | v `S.member` rvs = intRecNamed nopMapper (rvNames M.! v) mmap
       | otherwise = intRecNamed nopMapper v mmap
 
 instance Substable PerlCType where
