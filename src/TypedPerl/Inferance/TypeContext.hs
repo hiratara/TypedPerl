@@ -14,7 +14,6 @@ import Data.Monoid
 import qualified Data.Set as S
 import TypedPerl.Types
 import TypedPerl.PerlType
-import TypedPerl.Substitute
 
 type VarSet = (S.Set PerlTypeVars, S.Set RecsVar)
 
@@ -107,6 +106,3 @@ extractCType (PerlForall (vs, rvs) ty) = do
     intRecNamed' rvNames v mmap
       | v `S.member` rvs = intRecNamed nopMapper (rvNames M.! v) mmap
       | otherwise = intRecNamed nopMapper v mmap
-
-instance Substable PerlCType where
-  subst s (PerlForall vs ty) = PerlForall vs (subst s ty)

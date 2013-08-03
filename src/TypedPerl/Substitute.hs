@@ -5,6 +5,7 @@ module TypedPerl.Substitute (
   , compSubst
 ) where
 import qualified Data.Map as M
+import TypedPerl.Inferance.TypeContext
 import TypedPerl.PerlType
 import TypedPerl.Types
 import TypedPerl.Utils
@@ -35,6 +36,9 @@ instance Substable (SubstituteItem) where
       substSubst' (SubstType v ty) = SubstType v (subst ss ty)
       substSubst' (SubstArgs v reco) = SubstArgs v (subst ss reco)
       substSubst' (SubstRecs v reco) = SubstRecs v (subst ss reco)
+
+instance Substable PerlCType where
+  subst s (PerlForall vs ty) = PerlForall vs (subst s ty)
 
 newtype WrappedFunctor f a = WrappedFunctor {unWrap :: f a}
 
