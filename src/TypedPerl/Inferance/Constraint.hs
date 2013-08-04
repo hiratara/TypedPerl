@@ -16,7 +16,7 @@ data ConstraintItem =
 type UnsolvedConstr = (Constraint, Substitute)
 
 emptyConstr :: UnsolvedConstr
-emptyConstr = ([], [])
+emptyConstr = ([], emptySubst)
 
 infixr 6 `addConstr`
 addConstr :: ConstraintItem -> UnsolvedConstr -> UnsolvedConstr

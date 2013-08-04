@@ -2,7 +2,7 @@
 module TypedPerl.Substitute (
   Substitute, SubstituteItem(..)
   , Substitutable (..)
-  , compSubst, addSubst
+  , emptySubst, compSubst, addSubst
 ) where
 import qualified Data.Map as M
 import qualified Data.Set as S
@@ -15,13 +15,18 @@ data SubstituteItem =
   | SubstArgs RecsVar (PerlRecs Int)
   | SubstRecs RecsVar (PerlRecs String)
   deriving Show
-type Substitute = [SubstituteItem]
+type Substitute = (M.Map PerlTypeVars PerlType
+                  , M.Map RecsVar (PerlRecs Int)
+                  , M.Map RecsVar (PerlRecs String))
 
 class Substitutable r where
   subst :: Substitute -> r -> r
-  subst ss r = foldl (flip subst1) r ss
+  subst (ss1, ss2, ss3) r =
+    flip (M.foldWithKey ((subst1 .) . SubstType)) ss1 .
+    flip (M.foldWithKey ((subst1 .) . SubstArgs)) ss2 .
+    flip (M.foldWithKey ((subst1 .) . SubstRecs)) ss3 $ r
   subst1 :: SubstituteItem -> r -> r
-  subst1 s r = subst [s] r
+  subst1 s r = subst (singleton s) r
 
 instance Substitutable PerlType where
   subst1 s = foldType (substMapper s)
@@ -40,12 +45,13 @@ instance Substitutable (SubstituteItem) where
       substSubst' (SubstRecs v reco) = SubstRecs v (subst ss reco)
 
 instance Substitutable PerlCType where
-  subst s (PerlForall vs ty) = PerlForall vs (subst s' ty)
-    where s' = filter ((not .) (contained vs)) s
-          contained (tvs, rvs) item = case item of
-            SubstType v _ -> v `S.member` tvs
-            SubstArgs v _ -> v `S.member` rvs
-            SubstRecs v _ -> v `S.member` rvs
+  subst (s1, s2, s3) (PerlForall vs@(tvs, rvs) ty) =
+    PerlForall vs (subst s' ty)
+    where s' = (remove s1 tvs
+                , remove s2 rvs
+                , remove s3 rvs
+                )
+          remove m s = M.filterWithKey (\k -> (const . not . S.member k) s) m
 
 newtype WrappedFunctor f a = WrappedFunctor {unWrap :: f a}
 
@@ -61,6 +67,10 @@ instance Substitutable r => Substitutable [r] where
 
 instance Substitutable r => Substitutable (a, r) where
   subst = substOnFunctor
+
+instance (Substitutable r1, Substitutable r2, Substitutable r3) =>
+         Substitutable (r1, r2, r3) where
+  subst s (x, y, z) = (subst s x, subst s y, subst s z)
 
 substOnFunctor :: (Functor f, Substitutable r) => Substitute -> f r -> f r
 substOnFunctor ss = unWrap . subst ss . WrappedFunctor
@@ -99,8 +109,20 @@ unsafeUnion m m' =
      then M.union m m'
      else error "[BUG]2 other maps found"
 
-compSubst :: Substitute -> Substitute -> Substitute
-compSubst = flip (foldr addSubst)
+emptySubst :: Substitute
+emptySubst = (M.empty, M.empty, M.empty)
 
+infixr 6 `compSubst`
+compSubst :: Substitute -> Substitute -> Substitute
+compSubst (s1, s2, s3) (s1', s2', s3') = (s1 `M.union` s1'
+                                         , s2 `M.union` s2'
+                                         , s3 `M.union` s3')
+
+singleton :: SubstituteItem -> Substitute
+singleton (SubstType v ty) = (M.singleton v ty, M.empty, M.empty)
+singleton (SubstArgs v reco) = (M.empty, M.singleton v reco, M.empty)
+singleton (SubstRecs v reco) = (M.empty, M.empty, M.singleton v reco)
+
+infixr 6 `addSubst`
 addSubst :: SubstituteItem -> Substitute -> Substitute
-addSubst s1 ss = s1 : (subst1 s1 ss)
+addSubst s1 ss = singleton s1 `compSubst` (subst1 s1 ss)

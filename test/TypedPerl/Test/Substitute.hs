@@ -11,17 +11,19 @@ tests :: Test
 tests = TestList [
   (TestCase $ do
       let ty = TypeVar (TypeNamed "a")
-      let s = [  SubstType (TypeNamed "a") (TypeVar (TypeNamed "b"))
-               , SubstType (TypeNamed "b") (TypeVar (TypeNamed "c"))]
+      let s = SubstType (TypeNamed "b") (TypeVar (TypeNamed "c"))
+              `addSubst` SubstType (TypeNamed "a") (TypeVar (TypeNamed "b"))
+              `addSubst` emptySubst
       let ty' = subst s ty
       assertEqual "subst deeply" (TypeVar (TypeNamed "c")) ty'
   )
   , (TestCase $ do
       let ty = TypeVar (TypeNamed "a")
-      let s = [  SubstType (TypeNamed "a")
-                           (TypeArrow (TypeVar (TypeNamed "b"))
-                                      (TypeVar (TypeNamed "b")))
-               , SubstType (TypeNamed "b") (TypeBuiltin TypeInt)]
+      let s = SubstType (TypeNamed "b") (TypeBuiltin TypeInt)
+              `addSubst` SubstType (TypeNamed "a")
+                                   (TypeArrow (TypeVar (TypeNamed "b"))
+                                              (TypeVar (TypeNamed "b")))
+              `addSubst` emptySubst
       let ty' = subst s ty
       assertEqual "subst deeply"
                   (TypeArrow (TypeBuiltin TypeInt)
@@ -38,9 +40,9 @@ tests = TestList [
                         (TypeArrow (TypeVar (TypeNamed "a"))
                                    (TypeArrow (TypeBuiltin TypeInt)
                                               (TypeBuiltin TypeInt)))
-      let s = [SubstType (TypeNamed "a") (TypeBuiltin TypeInt)
-               , SubstType (TypeNamed "b") (TypeBuiltin TypeInt)
-              ]
+      let s = SubstType (TypeNamed "a") (TypeBuiltin TypeInt)
+              `addSubst` SubstType (TypeNamed "b") (TypeBuiltin TypeInt)
+              `addSubst` emptySubst
       let cty' = subst s cty
       assertEqual "subst ctype" expectedCty cty'
   )

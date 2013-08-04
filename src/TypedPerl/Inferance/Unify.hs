@@ -24,14 +24,14 @@ unifyUnsolvedConstr (c, s) = do
 
 unify :: (MonadState TypeContext m, MonadError TypeError m) =>
          Constraint -> m Substitute
-unify [] = return []
+unify [] = return (emptySubst)
 unify ((EqType type1 type2):cs) = case (type1, type2) of
   (t1, t2) | t1 == t2 -> unify cs
   (TypeVar v, TypeUnknown) -> do
     let s = SubstType v TypeUnknown
-    (s :) `liftM` unify (subst1 s cs)
+    (s `addSubst`) `liftM` unify (subst1 s cs)
   (TypeVar v, b@(TypeBuiltin _)) -> do
-    ss <- unify (subst [SubstType v b] cs)
+    ss <- unify (subst1 (SubstType v b) cs)
     return ((SubstType v b) `addSubst` ss)
   (TypeVar v, t)
     | not $ t `elemTypeType` v ->
@@ -65,11 +65,11 @@ unifyRecs a1 a2 cs newconst newsubst =
       (newConstraints, lackM, lackM') = typesToConstr m m'
   (RecNamed s m, RecEmpty m')
     | M.null lackM' ->
-       let substs = [newsubst s (RecEmpty lackM)]
+       let substs = newsubst s (RecEmpty lackM)
            constr = newConstraints ++ cs
-           constr' = subst substs constr
+           constr' = subst1 substs constr
        in do substs' <- unify constr'
-             return (substs `compSubst` substs')
+             return (substs `addSubst` substs')
     | otherwise -> throwError (
                      "Oops, " ++ show m' ++ " has other keys:" ++ show m)
     where
@@ -80,10 +80,10 @@ unifyRecs a1 a2 cs newconst newsubst =
     | s == s' -> unify (newconst (RecEmpty m) (RecEmpty m'):cs)
     | otherwise -> do
       newRec <- freshRec
-      let substs = [
+      let substs =
             newsubst s (unionRec lackM newRec)
-            , newsubst s' (unionRec lackM' newRec)
-            ]
+            `addSubst` newsubst s' (unionRec lackM' newRec)
+            `addSubst` emptySubst
       let constr = newConstraints ++ cs
       let constr' = subst substs constr
       substs' <- unify constr'
