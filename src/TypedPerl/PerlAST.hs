@@ -8,8 +8,7 @@ import qualified Data.Map as M
 import Prelude hiding (seq);
 
 data PerlASTMapper a b c = PerlASTMapper {
-  subDeclare :: PerlVars -> a -> a
-  , declare :: PerlVars -> a -> a
+  declare :: PerlVars -> a -> a
   , int :: Integer -> a
   , str :: String -> a
   , var :: PerlVars -> a
@@ -28,8 +27,7 @@ data PerlASTMapper a b c = PerlASTMapper {
 
 nopMapper :: PerlASTMapper PerlAST (M.Map String PerlAST) [PerlAST]
 nopMapper = PerlASTMapper {
-  subDeclare = PerlSubDeclare
-  , declare = PerlDeclare
+  declare = PerlDeclare
   , int = PerlInt
   , str = PerlStr
   , var = PerlVar
@@ -47,7 +45,6 @@ nopMapper = PerlASTMapper {
   }
 
 foldAST :: PerlASTMapper a b c -> PerlAST -> a
-foldAST m (PerlSubDeclare v ast) = subDeclare m v (foldAST m ast)
 foldAST m (PerlDeclare v ast) = declare m v (foldAST m ast)
 foldAST m (PerlInt n) = int m n
 foldAST m (PerlStr s) = str m s

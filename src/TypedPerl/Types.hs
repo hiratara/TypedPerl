@@ -50,8 +50,7 @@ data PerlBinOp = PerlBinOp {
 } deriving (Show, Eq)
 
 data PerlAST =
-  PerlSubDeclare PerlVars PerlAST
-  | PerlDeclare PerlVars PerlAST
+  PerlDeclare PerlVars PerlAST
   | PerlInt Integer
   | PerlStr String
   | PerlVar PerlVars
@@ -102,8 +101,6 @@ showPerlAST (PerlVar t) = showPerlVars t
 showPerlAST (PerlImplicitItem _ n) = "$_[" ++ show n ++ "]"
 showPerlAST (PerlDeclare v t) = "my " ++ (showPerlVars v) ++
                                    " = (" ++ showPerlAST t ++ ")"
-showPerlAST (PerlSubDeclare (VarSub s) (PerlAbstract t)) =
-  "sub " ++ s ++ " { " ++ showPerlAST t ++ " }\n"
 showPerlAST (PerlOp op t1 t2) = "(" ++ showPerlAST t1 ++ " "
                                 ++ symbol op ++ " " ++
                                 showPerlAST t2 ++ ")"

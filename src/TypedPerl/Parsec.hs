@@ -255,7 +255,7 @@ parserSubDeclare = do
   spaces
   content <- parserBlock
   spaces
-  return (PerlSubDeclare (VarSub sym) (PerlAbstract content))
+  return (PerlDeclare (VarSub sym) (PerlAbstract content))
 
 parserSub :: PerlParser
 parserSub = do

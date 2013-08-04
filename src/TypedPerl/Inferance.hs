@@ -40,8 +40,7 @@ constrMapper :: (MonadState TypeContext m, MonadError TypeError m) =>
                               (m (M.Map String PerlType, UnsolvedConstr))
                               (m ([PerlType], UnsolvedConstr))
 constrMapper = PerlASTMapper {
-  subDeclare = subDeclare'
-  , declare = declare'
+  declare = declare'
   , int = (const . return) (TypeBuiltin TypeInt, emptyConstr)
   , str = (const . return) (TypeBuiltin TypeStr, emptyConstr)
   , TypedPerl.PerlAST.var = var'
@@ -58,16 +57,14 @@ constrMapper = PerlASTMapper {
   , TypedPerl.PerlAST.seq = seq'
   }
   where
-    subDeclare' v mt =  do
-      (ty, cns) <- mt
-      (cTy, cns') <- buildTypeSchema (ty, cns)
-      modify (\tc -> tc {context = (v, cTy):context tc})
-      return (TypeUnknown, cns')
     declare' v mt = do
       (ty, cns) <- mt
       (cTy, cns') <- buildTypeSchema (ty, cns)
       modify (\tc -> tc {context = (v, cTy):context tc})
-      liftM (, cns') (extractCType cTy)
+      case v of
+        -- subroutine definition has no meaningful types
+        (VarSub _) -> return (TypeUnknown, cns')
+        _          -> liftM (, cns') (extractCType cTy)
     var' v =  do
       ctx <- gets context
       case lookup v ctx of
