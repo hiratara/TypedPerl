@@ -115,4 +115,13 @@ tests = TestList [
       let ty = inferCodeRight "my $x = sub { print($_[0]) }; $x->(\"Hello\"); print(\", \"); $x->(999); 1"
       assertEqual "complicated codes" (TypeBuiltin TypeInt) ty
   )
+  , (TestCase $ do
+      let ty = inferCodeRight "2; package Hoge; sub h { 1 } h()"
+      assertEqual "with Package" (TypeBuiltin TypeInt) ty
+  )
+  , (TestCase $ do
+      let e = inferCodeLeft "sub f { 1 } package Foo; f()"
+      putStrLn ('\n':e)
+      assertBool "Don't call function of other package" ((not . null) e)
+  )
   ]

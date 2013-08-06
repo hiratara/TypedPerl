@@ -55,19 +55,21 @@ constrMapper = PerlASTMapper {
   , appListCons = appListCons'
   , appListNil = appListNil'
   , TypedPerl.PerlAST.seq = seq'
+  , package = package'
   }
   where
     declare' v mt = do
       (ty, cns) <- mt
+      cv <- varWithNamespace v
       (cTy, cns') <- buildTypeSchema (ty, cns)
-      modify (\tc -> tc {context = (v, cTy):context tc})
+      modify (\tc -> tc {context = (cv, cTy):context tc})
       case v of
         -- subroutine definition has no meaningful types
         (VarSub _) -> return (TypeUnknown, cns')
         _          -> liftM (, cns') (extractCType cTy)
     var' v =  do
-      ctx <- gets context
-      case lookup v ctx of
+      cty <- gets context >>= lookupContext v
+      case cty of
         Just ty' -> liftM (, emptyConstr) (extractCType ty')
         _ -> throwError ("Undefined variable " ++ show v)
     implicitItem' ast n = buildRecordConstraint ast n EqArgs TypeArg
@@ -89,7 +91,8 @@ constrMapper = PerlASTMapper {
     objItem' mo f = buildRecordConstraint mo f EqRecs TypeObj
     abstract' mt = do
       newType <- freshType
-      (ty, cns) <- withContext ((VarSubImplicit, asCType newType) :) mt
+      vImpli <- varWithNamespace VarSubImplicit
+      (ty, cns) <- withContext ((vImpli, asCType newType) :) mt
       return (TypeArrow newType ty, cns)
     app' mt1 mts =  do
       (ty, cns1) <- mt1
@@ -107,6 +110,7 @@ constrMapper = PerlASTMapper {
       (_, cns1) <- mt1
       (ty, cns2) <- mt2
       return (ty, cns2 <> cns1)
+    package' name mt = withPackage (const name) mt
     buildTypeSchema (ty, cns) = do
       cns' <- unifyUnsolvedConstr cns
 

@@ -1,10 +1,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 module TypedPerl.Inferance.TypeContext (
   TypeContext (..), TypeNames, Context
+  , PerlCVar (..), varWithNamespace
   , PerlCType (..), asCType, asCTypeSchema, extractCType
   , TypeError
   , freshType, freshRec
-  , withContext
+  , withContext, withPackage
+  , lookupContext
   ) where
 import Control.Monad
 import Control.Monad.State.Class
@@ -16,14 +18,16 @@ import TypedPerl.PerlType
 
 type VarSet = (S.Set PerlTypeVars, S.Set RecsVar)
 
+data PerlCVar = PerlCVar PerlNamespace PerlVars deriving (Show, Eq)
 data PerlCType = PerlForall VarSet PerlType
                  deriving (Show, Eq)
-type Context = [(PerlVars, PerlCType)]
+type Context = [(PerlCVar, PerlCType)]
 
 type TypeError = String
 
 data TypeContext = TypeContext {
   names :: TypeNames
+  , curPackage :: String
   , context :: Context
   }
 type TypeNames = [String]
@@ -49,6 +53,14 @@ withContext f mx = do
   curCtx <- gets context
   x <- modify (\tc -> tc {context = (f . context) tc}) >> mx
   modify (\tc -> tc {context = curCtx})
+  return x
+
+withPackage :: MonadState TypeContext m =>
+                   (String -> String) -> m a -> m a
+withPackage f mx = do
+  origPackage <- gets curPackage
+  x <- modify (\tc -> tc {curPackage = (f . curPackage) tc}) >> mx
+  modify (\tc -> tc {curPackage = origPackage})
   return x
 
 asCTypeSchema :: Context -> PerlType -> PerlCType
@@ -100,3 +112,18 @@ extractCType (PerlForall (vs, rvs) ty) = do
     intRecNamed' rvNames v mmap
       | v `S.member` rvs = intRecNamed nopMapper (rvNames M.! v) mmap
       | otherwise = intRecNamed nopMapper v mmap
+
+varWithNamespace :: MonadState TypeContext m => PerlVars -> m PerlCVar
+varWithNamespace v@(VarSub _) = do
+  pk <- gets curPackage
+  return (PerlCVar (NsGlobal pk) v)
+varWithNamespace v = return (PerlCVar NsLexical v)
+
+lookupContext :: MonadState TypeContext m =>
+                 PerlVars -> Context -> m (Maybe PerlCType)
+lookupContext v ctx = mplus `liftM` lookup1 `ap` lookup2
+  where
+    lookup1 = do
+      cv <- varWithNamespace v
+      return (lookup cv ctx)
+    lookup2 = return (lookup (PerlCVar (NsGlobal "CORE") v) ctx)

@@ -4,6 +4,7 @@ module TypedPerl.Types (
   PerlRecs (..),
   PerlTypeBuiltins (..),
   PerlType (..),
+  PerlNamespace (..),
   PerlVars (..),
   PerlBinOp (..),
   PerlAST (..),
@@ -35,6 +36,8 @@ data PerlType =
   | TypeObj (PerlRecs String)
   | TypeArrow PerlType PerlType
   deriving (Show, Eq)
+
+data PerlNamespace = NsLexical | NsGlobal String deriving (Show, Eq)
 
 data PerlVars =
   VarSubImplicit
