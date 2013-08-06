@@ -42,4 +42,15 @@ tests = TestList [
                     (PerlImplicitItem (PerlVar VarSubImplicit) 0) "def"))
                   t
   )
+  , (TestCase $ do
+      let Right t = parsePerl "1; package Hoge; 1; package Foo; 2;"
+      assertEqual "package"
+                  (PerlSeq
+                    (PerlInt 1)
+                  (PerlSeq
+                    (PerlPackage "Hoge" (PerlInt 1))
+                    (PerlPackage "Foo"  (PerlInt 2))
+                  ))
+                  t
+  )
   ]

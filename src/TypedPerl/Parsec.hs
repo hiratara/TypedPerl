@@ -10,6 +10,22 @@ type PerlParser = PerlParserBase PerlAST
 
 data PerlState = PerlState
 
+parserPackages :: PerlParser
+parserPackages = do
+  mainAST <- optionMaybe parserTopSequences
+  asts <- many parserOnePackage
+  eof
+  return $ let asts' = maybe asts (: asts) mainAST
+           in foldr1 PerlSeq asts'
+  where
+    parserOnePackage =  do
+      string "package" >> space >> spaces
+      name <- perlClassname
+      spaces
+      char ';' >> spaces
+      ast <- parserTopSequences
+      return (PerlPackage name ast)
+
 parserTopSequences :: PerlParser
 parserTopSequences = do
   ts <- (many . try) (try (do {x <- parserSentence; eol; return x}) <|>
@@ -18,7 +34,6 @@ parserTopSequences = do
   let ts' = case lastTerm of
         Just t -> ts ++ (t:[])
         _      -> ts
-  eof
   return (if null ts' then error "NO SENTENCES" else foldr1 PerlSeq ts')
   where
     eol = many1 (char ';' >> spaces) >> return ()
@@ -277,7 +292,7 @@ parserArgs = do
   return ts
 
 perlParser :: PerlParser
-perlParser = parserTopSequences
+perlParser = parserPackages
 
 parsePerl :: String -> Either ParseError PerlAST
 parsePerl source = runParser perlParser PerlState [] source

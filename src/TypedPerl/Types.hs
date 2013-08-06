@@ -61,6 +61,7 @@ data PerlAST =
   | PerlAbstract PerlAST
   | PerlApp PerlAST [PerlAST]
   | PerlSeq PerlAST PerlAST
+  | PerlPackage String PerlAST
   deriving (Show, Eq)
 
 showPerlTypeVars :: PerlTypeVars -> String
@@ -117,3 +118,4 @@ showPerlAST (PerlApp t1 ts) =
     terms = concatMap (\(t, c) -> c ++ showPerlAST t)
                       (zip ts ("":repeat ", "))
 showPerlAST (PerlSeq t1 t2) = showPerlAST t1 ++ "; " ++ showPerlAST t2
+showPerlAST (PerlPackage name t) = "package " ++ name ++ ";\n" ++ showPerlAST t;
