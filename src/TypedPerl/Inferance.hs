@@ -27,13 +27,14 @@ buildRecordConstraint :: (Ord k
                          -> (PerlRecs k -> PerlType)
                          -> m (PerlType, UnsolvedConstr)
 buildRecordConstraint mast k newconst newrectype = do
-  (ty, (c, s)) <- mast
+  (ty, cns) <- mast
   newType <- freshType
   newRow1 <- freshRec
   newRow2 <- liftM (unionRec (M.fromList [(k, newType)])) freshRec
   return (newType
-          , ((newconst newRow1 newRow2):(EqType ty (newrectype newRow1)):c
-             , s))
+          , newconst newRow1 newRow2
+            `addConstr` EqType ty (newrectype newRow1)
+            `addConstr` cns)
 
 constrMapper :: (MonadState TypeContext m, MonadError TypeError m) =>
                 PerlASTMapper (m (PerlType, UnsolvedConstr))
