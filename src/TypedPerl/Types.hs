@@ -61,6 +61,7 @@ data PerlAST =
   | PerlOp PerlBinOp PerlAST PerlAST
   | PerlObj (M.Map String PerlAST) String
   | PerlObjItem PerlAST String
+  | PerlObjMeth PerlAST String [PerlAST]
   | PerlAbstract PerlAST
   | PerlApp PerlAST [PerlAST]
   | PerlSeq PerlAST PerlAST
@@ -115,11 +116,14 @@ showPerlAST (PerlObj m x) = "bless " ++ hash ++ ", \"" ++ x ++ "\""
     hashContent = concat $ map (\(k, v) -> k ++ " => " ++ showPerlAST v)
                                (M.assocs m)
 showPerlAST (PerlObjItem t x) = "(" ++ showPerlAST t ++ ")->{" ++ x ++ "}"
+showPerlAST (PerlObjMeth t x ts) = "(" ++ showPerlAST t ++ ")->" ++ x ++
+                                   "(" ++ showTerms ts ++ ")"
 showPerlAST (PerlAbstract t) = "sub {" ++ " " ++ showPerlAST t ++ " }"
 showPerlAST (PerlApp t1 ts) =
-  "(" ++ showPerlAST t1 ++ ")->(" ++ terms ++ ")"
-  where
-    terms = concatMap (\(t, c) -> c ++ showPerlAST t)
-                      (zip ts ("":repeat ", "))
+  "(" ++ showPerlAST t1 ++ ")->(" ++ showTerms ts ++ ")"
 showPerlAST (PerlSeq t1 t2) = showPerlAST t1 ++ "; " ++ showPerlAST t2
 showPerlAST (PerlPackage name t) = "package " ++ name ++ ";\n" ++ showPerlAST t;
+
+showTerms :: [PerlAST] -> String
+showTerms ts = concatMap (\(t, c) -> c ++ showPerlAST t)
+                         (zip ts ("":repeat ", "))

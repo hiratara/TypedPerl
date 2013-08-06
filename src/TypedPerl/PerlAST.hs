@@ -18,6 +18,7 @@ data PerlASTMapper a b c = PerlASTMapper {
   , objMapItem :: String -> a -> b -> b
   , objMapNil :: b
   , objItem :: a -> String -> a
+  , objMeth :: a -> String -> c -> a
   , abstract :: a -> a
   , app :: a -> c -> a
   , appListCons :: a -> c -> c
@@ -38,6 +39,7 @@ nopMapper = PerlASTMapper {
   , objMapItem = M.insert
   , objMapNil = M.empty
   , objItem = PerlObjItem
+  , objMeth = PerlObjMeth
   , abstract = PerlAbstract
   , app = PerlApp
   , appListCons = (:)
@@ -55,6 +57,8 @@ foldAST m (PerlImplicitItem ast n) = implicitItem m (foldAST m ast) n
 foldAST m (PerlOp o ast1 ast2) = op m o (foldAST m ast1) (foldAST m ast2)
 foldAST m (PerlObj ma s) = obj m (foldObjMap m ma) s
 foldAST m (PerlObjItem ast1 s) = objItem m (foldAST m ast1) s
+foldAST m (PerlObjMeth ast s asts) = objMeth m (foldAST m ast) s
+                                               (foldAppList m asts)
 foldAST m (PerlAbstract ast) = abstract m (foldAST m ast)
 foldAST m (PerlApp ast asts) = app m (foldAST m ast) (foldAppList m asts)
 foldAST m (PerlSeq ast1 ast2) = seq m (foldAST m ast1) (foldAST m ast2)

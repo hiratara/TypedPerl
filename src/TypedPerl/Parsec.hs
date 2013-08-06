@@ -141,6 +141,11 @@ precedence2 = do
             precedence2' (PerlObjItem callie name)
           ) <|> (
           do
+            name <- perlSymbol
+            ts <- parserArgs
+            precedence2' (PerlObjMeth callie name ts)
+          ) <|> (
+          do
             ts <- parserArgs
             precedence2' (PerlApp callie ts)
           )
