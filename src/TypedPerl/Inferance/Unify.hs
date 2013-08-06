@@ -43,7 +43,8 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
     unify ((EqType t1 t2):(EqType t1' t2'):cs)
   (TypeArg arg1, TypeArg arg2) -> unify ((EqArgs arg1 arg2):cs)
-  (TypeObj obj1, TypeObj obj2) -> unify ((EqRecs obj1 obj2):cs)
+  (TypeObj fi1 me1, TypeObj fi2 me2) ->
+    unify ((EqRecs me1 me2):(EqRecs fi1 fi2):cs)
   (t1, t2) -> throwError (
                 "Couldn't find answer:" ++ show t1 ++ "==" ++ show t2)
 unify ((EqArgs a1 a2):cs) = unifyRecs a1 a2 cs EqArgs SubstArgs

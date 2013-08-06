@@ -33,7 +33,7 @@ data PerlType =
   | TypeUnknown
   | TypeBuiltin PerlTypeBuiltins
   | TypeArg (PerlRecs Int)
-  | TypeObj (PerlRecs String)
+  | TypeObj (PerlRecs String) (PerlRecs String)
   | TypeArrow PerlType PerlType
   deriving (Show, Eq)
 
@@ -91,7 +91,8 @@ showPerlType (TypeBuiltin ty) = showPerlTypeBuiltins ty
 showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
                                    ++ showPerlType ty2 ++ ")"
 showPerlType (TypeArg r) = showPerlRecs r
-showPerlType (TypeObj r) = showPerlRecs r
+showPerlType (TypeObj fi me) = "{fields => " ++ showPerlRecs fi
+                               ++ ", methods => " ++ showPerlRecs me ++ "}"
 
 showPerlVars :: PerlVars -> String
 showPerlVars VarSubImplicit = "@_"

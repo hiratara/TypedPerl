@@ -81,15 +81,18 @@ constrMapper = PerlASTMapper {
               , (EqType ty1 $ leftType o)
                 `addConstr` (EqType ty2 $ rightType o)
                 `addConstr` cns1 <> cns2)
-    obj' mm _ = do
+    obj' mm className = do
       (reco, cns) <- mm
-      return (TypeObj (RecEmpty reco), cns)
+      meths <- extractMethods className
+      return (TypeObj (RecEmpty reco) meths, cns)
     objMapItem' f mast mrec = do
       (ty, cns) <- mast
       (reco, cns') <- mrec
       return (M.insert f ty reco, cns <> cns')
     objMapNil' = return (M.empty, emptyConstr)
-    objItem' mo f = buildRecordConstraint mo f EqRecs TypeObj
+    objItem' mo f = buildRecordConstraint mo f EqRecs objByField
+      where
+        objByField fi = TypeObj fi (RecEmpty M.empty)
     abstract' mt = do
       newType <- freshType
       vImpli <- varWithNamespace VarSubImplicit
@@ -120,6 +123,17 @@ constrMapper = PerlASTMapper {
       let ty' = subst (snd cns') ty
 
       liftM (, cns') (liftM (flip asCTypeSchema ty') (gets context))
+
+extractMethods :: (MonadState TypeContext m) =>
+                  String -> m (PerlRecs String)
+extractMethods ns = do
+  ctx <- gets context
+  assoc <- (sequence . concatMap (byNamespace ns)) ctx
+  return (RecEmpty (M.fromList assoc))
+  where
+    byNamespace n' (PerlCVar (NsGlobal n'') (VarSub methName), cty)
+      | n' == n'' = [liftM (methName ,) (extractCType cty)]
+    byNamespace _ _ = []
 
 infer :: PerlAST -> Either TypeError PerlType
 infer t = evalStateT inferMain initialTypeContext

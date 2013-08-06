@@ -12,7 +12,7 @@ data PerlTypeMapper a b1 b2 c1 c2 = PerlTypeMapper {
   , unknown :: a
   , builtin :: PerlTypeBuiltins -> a
   , arg :: b1 -> a
-  , obj :: c1 -> a
+  , obj :: c1 -> c1 -> a
   , arrow :: a -> a -> a
   , intRecEmpty :: b2 -> b1
   , intRecNamed :: RecsVar -> b2 -> b1
@@ -51,7 +51,7 @@ asMonadic mapper = mapper {
   , unknown = return (unknown mapper)
   , builtin = return . builtin mapper
   , arg = liftM (arg mapper)
-  , obj = liftM (obj mapper)
+  , obj = ap . liftM (obj mapper)
   , arrow = ap . liftM (arrow mapper)
   , intRecEmpty = liftM (intRecEmpty mapper)
   , intRecNamed = liftM . intRecNamed mapper
@@ -75,7 +75,7 @@ monoidMapper = PerlTypeMapper {
   , unknown = mempty
   , builtin = const mempty
   , arg = id
-  , obj = id
+  , obj = mappend
   , arrow = mappend
   , intRecEmpty = id
   , intRecNamed = const id
@@ -92,7 +92,8 @@ foldType mapper (TypeVar v) = var mapper v
 foldType mapper (TypeUnknown) = unknown mapper
 foldType mapper (TypeBuiltin b) = builtin mapper b
 foldType mapper (TypeArg a) = arg mapper (foldRecInt mapper a)
-foldType mapper (TypeObj o) = obj mapper (foldRecStr mapper o)
+foldType mapper (TypeObj fi me) = obj mapper (foldRecStr mapper fi)
+                                             (foldRecStr mapper me)
 foldType mapper (TypeArrow ty1 ty2) = arrow mapper (foldType mapper ty1)
                                                    (foldType mapper ty2)
 
