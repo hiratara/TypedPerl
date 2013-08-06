@@ -95,7 +95,7 @@ constrMapper = PerlASTMapper {
                 `addConstr` cns1 <> cns2)
     obj' mm className = do
       (reco, cns) <- mm
-      meths <- extractMethods className
+      meths <- lookupMethods className
       return (TypeObj (RecEmpty reco) meths, cns)
     objMapItem' f mast mrec = do
       (ty, cns) <- mast
@@ -152,9 +152,9 @@ constrMapper = PerlASTMapper {
 
       liftM (, cns') (liftM (flip asCTypeSchema ty') (gets context))
 
-extractMethods :: (MonadState TypeContext m) =>
+lookupMethods :: (MonadState TypeContext m) =>
                   String -> m (PerlRecs String)
-extractMethods ns = do
+lookupMethods ns = do
   ctx <- gets context
   assoc <- (sequence . concatMap (byNamespace ns)) ctx
   return (RecEmpty (M.fromList assoc))
