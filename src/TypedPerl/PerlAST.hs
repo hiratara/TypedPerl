@@ -23,6 +23,7 @@ data PerlASTMapper a b c = PerlASTMapper {
   , appListCons :: a -> c -> c
   , appListNil :: c
   , seq :: a -> a -> a
+  , package :: String -> a -> a
   }
 
 nopMapper :: PerlASTMapper PerlAST (M.Map String PerlAST) [PerlAST]
@@ -42,6 +43,7 @@ nopMapper = PerlASTMapper {
   , appListCons = (:)
   , appListNil = []
   , seq = PerlSeq
+  , package = PerlPackage
   }
 
 foldAST :: PerlASTMapper a b c -> PerlAST -> a
@@ -56,6 +58,7 @@ foldAST m (PerlObjItem ast1 s) = objItem m (foldAST m ast1) s
 foldAST m (PerlAbstract ast) = abstract m (foldAST m ast)
 foldAST m (PerlApp ast asts) = app m (foldAST m ast) (foldAppList m asts)
 foldAST m (PerlSeq ast1 ast2) = seq m (foldAST m ast1) (foldAST m ast2)
+foldAST m (PerlPackage name ast) = package m name (foldAST m ast)
 
 foldObjMap :: PerlASTMapper a b c -> M.Map String PerlAST -> b
 foldObjMap m ma = M.foldWithKey (\k -> objMapItem m k . foldAST m)
