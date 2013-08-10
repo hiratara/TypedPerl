@@ -92,7 +92,7 @@ showPerlType TypeUnknown = "?"
 showPerlType (TypeBuiltin ty) = showPerlTypeBuiltins ty
 showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
                                    ++ showPerlType ty2 ++ ")"
-showPerlType (TypeFix tyv ty) = "μ" ++ showPerlTypeVars tyv ++ "." ++ showPerlType ty
+showPerlType (TypeFix tyv ty) = "μ" ++ showPerlTypeVars tyv ++ ".(" ++ showPerlType ty ++ ")"
 showPerlType (TypeArg r) = showPerlRecs r
 showPerlType (TypeObj fi me) = "{fields => " ++ showPerlRecs fi
                                ++ ", methods => " ++ showPerlRecs me ++ "}"

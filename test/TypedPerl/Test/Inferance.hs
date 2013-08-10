@@ -108,11 +108,11 @@ tests = TestList [
   --     putStrLn ('\n':e)
   --     assertBool "y-combinater" ((not . null) e)
   -- )
-  -- TODO: I got "recursive row variable a15"
-  -- , (TestCase $ do
-  --     let ty = inferCodeRight "sub { $_[0]->($_[0]) }->(sub { $_[0] })->(1);"
-  --     assertEqual "recursion" (TypeBuiltin TypeInt) ty
-  -- )
+  , (TestCase $ do
+      let e = inferCodeLeft "sub { $_[0]->($_[0]) }->(sub { $_[0] })->(1);"
+      putStrLn ('\n':e)
+      assertBool "Don't allow on current type system" ((not . null) e)
+  )
   , (TestCase $ do
       let ty = inferCodeRight "sub { $_[0]->($_[0]) }->(sub { 1 })"
       assertEqual "simple recursion" (TypeBuiltin TypeInt) ty
