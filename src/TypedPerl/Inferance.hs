@@ -112,13 +112,8 @@ constrMapper = PerlASTMapper {
       (ty1, ty2, cns1) <- buildRecordConstraint3 mo me EqRecs objByMeth
       (tys, cns2) <- mts
 
-      -- Assign fresh type and raw variables to $self
-      -- (TODO: This doesn't work well. See TODO tests.)
-      ctx <- gets context
-      ty1' <- extractCType (asCTypeSchema ctx ty1)
-
       newType <- freshType
-      let argRec = RecEmpty (M.fromList (zip [0..] (ty1':tys))) -- Add $self
+      let argRec = RecEmpty (M.fromList (zip [0..] (ty1:tys))) -- Add $self
       let c = EqType ty2 (TypeArrow (TypeArg argRec) newType)
       return (newType, c `addConstr` cns2 <> cns1)
     abstract' mt = do

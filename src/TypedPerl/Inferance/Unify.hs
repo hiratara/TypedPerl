@@ -71,7 +71,7 @@ unifyRecs :: (Show k, Ord k,
              -> (RecsVar -> PerlRecs k -> SubstituteItem)
              -> m Substitute
 unifyRecs a1 a2 cs newconst newsubst =
-  isntRecursive a1 a2 >> case (a1, a2) of
+  case (a1, a2) of
   (RecEmpty m, RecEmpty m')
     | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
     | otherwise -> throwError ("Don't match rows of const arguments:"
@@ -106,18 +106,6 @@ unifyRecs a1 a2 cs newconst newsubst =
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
 
-isntRecursive :: (MonadState TypeContext m, MonadError TypeError m) =>
-                 PerlRecs k -> PerlRecs k -> m ()
-isntRecursive a b = isntRecursive' a b >> isntRecursive' b a
-  where
-    isntRecursive' (RecEmpty _) _ = return ()
-    isntRecursive' (RecNamed n _) (RecEmpty m) =
-      if elemMapRecs m n then throwError ("recursive row variable " ++ n)
-                         else return ()
-    isntRecursive' (RecNamed n _) (RecNamed _ m) =
-      if elemMapRecs m n then throwError ("recursive row variable " ++ n)
-                         else return ()
-
 typesToConstr :: Ord k => M.Map k PerlType -> M.Map k PerlType ->
                  (Constraint, M.Map k PerlType, M.Map k PerlType)
 typesToConstr m m' = (constraints, deleteKeys sames m', deleteKeys sames m)
@@ -136,14 +124,3 @@ elemTypeType ty v = (getAny . foldType mapper) ty
       }
     fix' v' ty' | v == v' = error ("[BUG]Duplicated " ++ show v')
                 | otherwise = fix monoidMapper v' ty'
-
-elemTypeArgs :: PerlType -> RecsVar -> Bool
-elemTypeArgs ty v = (getAny . foldType mapper) ty
-  where
-    mapper = monoidMapper {
-      intRecNamed = mappend . Any . (v ==)
-      , strRecNamed = mappend . Any . (v ==)
-      }
-
-elemMapRecs :: M.Map k PerlType -> RecsVar -> Bool
-elemMapRecs m x = or $ map (flip elemTypeArgs x) (M.elems m)
