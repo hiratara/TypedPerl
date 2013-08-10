@@ -14,6 +14,7 @@ data PerlTypeMapper a b1 b2 c1 c2 = PerlTypeMapper {
   , arg :: b1 -> a
   , obj :: c1 -> c1 -> a
   , arrow :: a -> a -> a
+  , fix :: PerlTypeVars -> a -> a
   , intRecEmpty :: b2 -> b1
   , intRecNamed :: RecsVar -> b2 -> b1
   , intMapItem :: Int -> a-> b2 -> b2
@@ -33,6 +34,7 @@ nopMapper = PerlTypeMapper {
   , arg = TypeArg
   , obj = TypeObj
   , arrow = TypeArrow
+  , fix = TypeFix
   , intRecEmpty = RecEmpty
   , intRecNamed = RecNamed
   , intMapItem = M.insert
@@ -53,6 +55,7 @@ asMonadic mapper = mapper {
   , arg = liftM (arg mapper)
   , obj = ap . liftM (obj mapper)
   , arrow = ap . liftM (arrow mapper)
+  , fix = liftM . fix mapper
   , intRecEmpty = liftM (intRecEmpty mapper)
   , intRecNamed = liftM . intRecNamed mapper
   , intMapItem = (ap .) . liftM . intMapItem mapper
@@ -77,6 +80,7 @@ monoidMapper = PerlTypeMapper {
   , arg = id
   , obj = mappend
   , arrow = mappend
+  , fix = const id
   , intRecEmpty = id
   , intRecNamed = const id
   , intMapItem = const mappend
@@ -96,6 +100,7 @@ foldType mapper (TypeObj fi me) = obj mapper (foldRecStr mapper fi)
                                              (foldRecStr mapper me)
 foldType mapper (TypeArrow ty1 ty2) = arrow mapper (foldType mapper ty1)
                                                    (foldType mapper ty2)
+foldType mapper (TypeFix v ty) = fix mapper v (foldType mapper ty)
 
 foldRecInt :: PerlTypeMapper a b1 b2 c1 c2 -> PerlRecs Int -> b1
 foldRecInt mapper (RecEmpty xs) = intRecEmpty mapper xs'

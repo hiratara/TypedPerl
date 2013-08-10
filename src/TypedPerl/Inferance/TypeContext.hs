@@ -4,7 +4,7 @@ module TypedPerl.Inferance.TypeContext (
   , PerlCVar (..), varWithNamespace
   , PerlCType (..), asCType, asCTypeSchema, extractCType
   , TypeError
-  , freshType, freshRec
+  , freshName, freshType, freshRec
   , withContext, withPackage
   , lookupContext
   ) where
@@ -73,10 +73,12 @@ freeVar ty = foldType mapper ty
   where
     mapper = monoidMapper {
       var = var'
+      , fix = fix'
       , intRecNamed = intRecNamed'
       , strRecNamed = strRecNamed'
       }
     var' v = (S.singleton v, S.empty)
+    fix' v vss = vss `minusVarSet` (S.singleton v, S.empty)
     intRecNamed' rv vss = (S.empty, S.singleton rv) <> vss
     strRecNamed' rv vss = (S.empty, S.singleton rv) <> vss
 
@@ -100,12 +102,17 @@ extractCType (PerlForall (vs, rvs) ty) = do
       liftM (M.insert v (typing n)) mm
     mapper vNames rvNames = nopMapper {
       var = var' vNames
+      , fix = fix' vNames
       , strRecNamed = strRecNamed' rvNames
       , intRecNamed = intRecNamed' rvNames
       }
     var' vNames v
       | v `S.member` vs = var nopMapper (vNames M.! v)
       | otherwise = var nopMapper v
+    fix' _ v ty'
+      | v `S.member` vs = error ("[BUG]variable named " ++ show v
+                                 ++ " is duplicated.")
+      | otherwise = fix nopMapper v ty'
     strRecNamed' rvNames v mmap
       | v `S.member` rvs = strRecNamed nopMapper (rvNames M.! v) mmap
       | otherwise = strRecNamed nopMapper v mmap

@@ -35,6 +35,7 @@ data PerlType =
   | TypeArg (PerlRecs Int)
   | TypeObj (PerlRecs String) (PerlRecs String)
   | TypeArrow PerlType PerlType
+  | TypeFix PerlTypeVars PerlType
   deriving (Show, Eq)
 
 data PerlNamespace = NsLexical | NsGlobal String deriving (Show, Eq)
@@ -91,6 +92,7 @@ showPerlType TypeUnknown = "?"
 showPerlType (TypeBuiltin ty) = showPerlTypeBuiltins ty
 showPerlType (TypeArrow ty1 ty2) = '(' : showPerlType ty1 ++ ") -> ("
                                    ++ showPerlType ty2 ++ ")"
+showPerlType (TypeFix tyv ty) = "μ" ++ showPerlTypeVars tyv ++ "." ++ showPerlType ty
 showPerlType (TypeArg r) = showPerlRecs r
 showPerlType (TypeObj fi me) = "{fields => " ++ showPerlRecs fi
                                ++ ", methods => " ++ showPerlRecs me ++ "}"

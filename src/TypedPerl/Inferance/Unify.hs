@@ -32,9 +32,16 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
     (s `addSubst`) `liftM` unify (subst1 s cs)
   (TypeVar v, b@(TypeBuiltin _)) -> do
     ss <- unify (subst1 (SubstType v b) cs)
-    return ((SubstType v b) `addSubst` ss)
+    return (SubstType v b `addSubst` ss)
   (TypeVar v, t)
-    | not $ t `elemTypeType` v ->
+    | t `elemTypeType` v -> do
+      v' <- TypeNamed `liftM` freshName
+      let ty' = subst1 (SubstType v (TypeVar v')) t -- assign the fresh name
+      let s = SubstType v (TypeFix v' ty')
+      ss <- unify (subst1 s cs)
+      let ss' = (s `addSubst` ss)
+      return ss'
+    | otherwise ->
       do let s = SubstType v t
          ss <- unify (subst1 s cs)
          return (s `addSubst` ss)
@@ -42,6 +49,13 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
     unify ((EqType t2 t1):cs)
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
     unify ((EqType t1 t2):(EqType t1' t2'):cs)
+  (TypeFix v (TypeVar v'), _)
+    | v == v' -> error ("[BUG]Can't extract a recursive type" ++ show v)
+  (ty1@(TypeFix v ty1'), ty2) -> do
+    let ty1'' = subst1 (SubstType v ty1) ty1'
+    unify ((EqType ty1'' ty2):cs)
+  (ty1, ty2@(TypeFix _ _)) ->
+    unify ((EqType ty2 ty1):cs)
   (TypeArg arg1, TypeArg arg2) -> unify ((EqArgs arg1 arg2):cs)
   (TypeObj fi1 me1, TypeObj fi2 me2) ->
     unify ((EqRecs me1 me2):(EqRecs fi1 fi2):cs)
@@ -116,7 +130,12 @@ typesToConstr m m' = (constraints, deleteKeys sames m', deleteKeys sames m)
 elemTypeType :: PerlType -> PerlTypeVars -> Bool
 elemTypeType ty v = (getAny . foldType mapper) ty
   where
-    mapper = monoidMapper {TypedPerl.PerlType.var = Any . (v ==)}
+    mapper = monoidMapper {
+      TypedPerl.PerlType.var = Any . (v ==)
+      , fix = fix'
+      }
+    fix' v' ty' | v == v' = error ("[BUG]Duplicated " ++ show v')
+                | otherwise = fix monoidMapper v' ty'
 
 elemTypeArgs :: PerlType -> RecsVar -> Bool
 elemTypeArgs ty v = (getAny . foldType mapper) ty

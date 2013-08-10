@@ -81,6 +81,7 @@ substMapper :: SubstituteItem ->
                               (PerlRecs String) (M.Map String PerlType)
 substMapper subs = nopMapper {
   var = substVar subs
+  , fix = substFix subs
   , intRecNamed = substRecInt subs
   , strRecNamed = substRecStr subs
   }
@@ -88,6 +89,12 @@ substMapper subs = nopMapper {
 substVar :: SubstituteItem -> PerlTypeVars -> PerlType
 substVar (SubstType v' ty') v | v' == v = ty'
 substVar _ v = var nopMapper v
+
+substFix :: SubstituteItem -> PerlTypeVars -> PerlType -> PerlType
+substFix (SubstType v' _) v _
+  | v' == v = error ("[BUG]variable named " ++ show v
+                     ++ "is duplicated.")
+substFix _ v ty = fix nopMapper v ty
 
 substRecInt :: SubstituteItem -> RecsVar -> M.Map Int PerlType
                -> PerlRecs Int
