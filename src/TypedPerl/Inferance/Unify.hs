@@ -29,22 +29,22 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
   (t1, t2) | t1 == t2 -> unify cs
   (TypeVar v, TypeUnknown) -> do
     let s = SubstType v TypeUnknown
-    (s `addSubst`) `liftM` unify (subst1 s cs)
+    (`compSubst` s `addSubst` emptySubst) `liftM` unify (subst1 s cs)
   (TypeVar v, b@(TypeBuiltin _)) -> do
     ss <- unify (subst1 (SubstType v b) cs)
-    return (SubstType v b `addSubst` ss)
+    return (ss `compSubst` SubstType v b `addSubst` emptySubst)
   (TypeVar v, t)
     | t `elemTypeType` v -> do
       v' <- TypeNamed `liftM` freshName
       let ty' = subst1 (SubstType v (TypeVar v')) t -- assign the fresh name
       let s = SubstType v (TypeFix v' ty')
       ss <- unify (subst1 s cs)
-      let ss' = (s `addSubst` ss)
+      let ss' = (ss `compSubst` s `addSubst` emptySubst)
       return ss'
     | otherwise ->
       do let s = SubstType v t
          ss <- unify (subst1 s cs)
-         return (s `addSubst` ss)
+         return (ss `compSubst` s `addSubst` emptySubst)
   (t1, t2@(TypeVar _)) -> -- t1 mustn't be TypeVar (See above guard sentences)
     unify ((EqType t2 t1):cs)
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
@@ -84,7 +84,7 @@ unifyRecs a1 a2 cs newconst newsubst =
            constr = newConstraints ++ cs
            constr' = subst1 substs constr
        in do substs' <- unify constr'
-             return (substs `addSubst` substs')
+             return (substs' `compSubst` substs `addSubst` emptySubst)
     | otherwise -> throwError (
                      "Oops, " ++ show m' ++ " has other keys:" ++ show m)
     where
@@ -102,7 +102,7 @@ unifyRecs a1 a2 cs newconst newsubst =
       let constr = newConstraints ++ cs
       let constr' = subst substs constr
       substs' <- unify constr'
-      return (substs `compSubst` substs')
+      return (substs' `compSubst` substs)
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
 
