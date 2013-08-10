@@ -49,6 +49,13 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
     unify ((EqType t2 t1):cs)
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
     unify ((EqType t1 t2):(EqType t1' t2'):cs)
+  (TypeFix v1 ty1, TypeFix v2 ty2)
+    | v1 /= v2 -> do
+      v' <- TypeNamed `liftM` freshName
+      -- Normalize bound type variable
+      let x1 = TypeFix v' (subst1 (SubstType v1 (TypeVar v')) ty1)
+      let x2 = TypeFix v' (subst1 (SubstType v2 (TypeVar v')) ty2)
+      unify (EqType x1 x2:cs)
   (TypeFix v (TypeVar v'), _)
     | v == v' -> error ("[BUG]Can't extract a recursive type" ++ show v)
   (ty1@(TypeFix v ty1'), ty2) -> do
