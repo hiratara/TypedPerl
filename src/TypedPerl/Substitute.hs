@@ -114,9 +114,9 @@ emptySubst = (M.empty, M.empty, M.empty)
 
 infixr 6 `compSubst`
 compSubst :: Substitute -> Substitute -> Substitute
-compSubst (s1, s2, s3) (s1', s2', s3') = (s1 `M.union` s1'
-                                         , s2 `M.union` s2'
-                                         , s3 `M.union` s3')
+compSubst s@(s1, s2, s3) (s1', s2', s3') = (s1 `M.union` subst s s1'
+                                         , s2 `M.union` subst s s2'
+                                         , s3 `M.union` subst s s3')
 
 singleton :: SubstituteItem -> Substitute
 singleton (SubstType v ty) = (M.singleton v ty, M.empty, M.empty)
