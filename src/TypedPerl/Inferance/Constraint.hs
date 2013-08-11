@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 module TypedPerl.Inferance.Constraint (
   ConstraintItem (..), Constraint, UnsolvedConstr
-  , emptyConstr, addConstr
+  , emptyConstr, addConstr, compConstr
   , showConstraint
   ) where
 import Data.List
@@ -23,6 +23,10 @@ emptyConstr = ([], emptySubst)
 infixr 6 `addConstr`
 addConstr :: ConstraintItem -> UnsolvedConstr -> UnsolvedConstr
 addConstr c (c', s) = (c:c', s)
+
+infixr 6 `compConstr`
+compConstr :: UnsolvedConstr -> UnsolvedConstr -> UnsolvedConstr
+compConstr (c, s) (c', s') = (c ++ c', s `compSubst` s')
 
 instance Substitutable ConstraintItem where
   subst ss = substConst'

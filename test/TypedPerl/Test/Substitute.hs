@@ -1,6 +1,7 @@
 module TypedPerl.Test.Substitute (
   tests
   ) where
+import qualified Data.Map as M
 import qualified Data.Set as S
 import Test.HUnit
 import TypedPerl.Substitute
@@ -45,5 +46,18 @@ tests = TestList [
               `addSubst` emptySubst
       let cty' = subst s cty
       assertEqual "subst ctype" expectedCty cty'
+  )
+  , (TestCase $ do
+      let s' = SubstType (TypeNamed "a")
+                  (TypeArg (RecNamed "b"
+                            (M.singleton 0 (TypeVar (TypeNamed "c")))))
+      let expectedS' = SubstType (TypeNamed "a")
+                  (TypeArg (RecEmpty
+                            (M.singleton 0 (TypeBuiltin TypeInt))))
+      let s = SubstArgs "b" (RecEmpty M.empty)
+              `addSubst` SubstType (TypeNamed "c") (TypeBuiltin TypeInt)
+              `addSubst` emptySubst
+      let s'' = subst s s'
+      assertEqual "subst ctype" expectedS' s''
   )
   ]

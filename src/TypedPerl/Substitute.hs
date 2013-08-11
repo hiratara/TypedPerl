@@ -16,7 +16,7 @@ data SubstituteItem =
   SubstType PerlTypeVars PerlType
   | SubstArgs RecsVar (PerlRecs Int)
   | SubstRecs RecsVar (PerlRecs String)
-  deriving Show
+  deriving (Show, Eq)
 type Substitute = (M.Map PerlTypeVars PerlType
                   , M.Map RecsVar (PerlRecs Int)
                   , M.Map RecsVar (PerlRecs String))
@@ -134,7 +134,7 @@ singleton (SubstRecs v reco) = (M.empty, M.empty, M.singleton v reco)
 
 infixr 6 `addSubst`
 addSubst :: SubstituteItem -> Substitute -> Substitute
-addSubst s1 ss = singleton s1 `compSubst` (subst1 s1 ss)
+addSubst s1 ss = singleton s1 `compSubst` ss
 
 -- showSubstituteItem :: SubstituteItem -> String
 -- showSubstituteItem = showSubstitute . singleton

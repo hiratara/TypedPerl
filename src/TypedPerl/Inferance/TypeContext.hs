@@ -7,7 +7,7 @@ module TypedPerl.Inferance.TypeContext (
   , freshName, freshType, freshRec
   , withContext, withPackage
   , lookupContext
-  , showContext
+  , showPerlCVar, showContext
   ) where
 import Control.Monad
 import Control.Monad.State.Class

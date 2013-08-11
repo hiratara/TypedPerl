@@ -11,7 +11,6 @@ import TypedPerl.Substitute
 import TypedPerl.Types
 import Control.Monad.State
 import Control.Monad.Error.Class
-import Data.Monoid
 import TypedPerl.PerlAST
 import qualified Data.Map as M
 
@@ -92,7 +91,7 @@ constrMapper = PerlASTMapper {
       return (returnType o
               , (EqType ty1 $ leftType o)
                 `addConstr` (EqType ty2 $ rightType o)
-                `addConstr` cns1 <> cns2)
+                `addConstr` cns2 `compConstr` cns1)
     obj' mm className = do
       (reco, cns) <- mm
       meths <- lookupMethods className
@@ -100,7 +99,7 @@ constrMapper = PerlASTMapper {
     objMapItem' f mast mrec = do
       (ty, cns) <- mast
       (reco, cns') <- mrec
-      return (M.insert f ty reco, cns <> cns')
+      return (M.insert f ty reco, cns' `compConstr` cns)
     objMapNil' = return (M.empty, emptyConstr)
     objItem' mo f = do
       fields <- freshRec
@@ -115,7 +114,7 @@ constrMapper = PerlASTMapper {
       newType <- freshType
       let argRec = RecEmpty (M.fromList (zip [0..] (ty1:tys))) -- Add $self
       let c = EqType ty2 (TypeArrow (TypeArg argRec) newType)
-      return (newType, c `addConstr` cns2 <> cns1)
+      return (newType, c `addConstr` cns2 `compConstr` cns1)
     abstract' mt = do
       newType <- freshType
       vImpli <- varWithNamespace VarSubImplicit
@@ -127,16 +126,16 @@ constrMapper = PerlASTMapper {
       newType <- freshType
       let argRec = RecEmpty (M.fromList (zip [0..] tys))
       let c = EqType ty (TypeArrow (TypeArg argRec) newType)
-      return (newType, (c `addConstr` cns2 <> cns1))
+      return (newType, (c `addConstr` cns2 `compConstr` cns1))
     appListCons' mast mapp = do
       (ty, cns)<- mast
       (tys, cns') <- mapp
-      return (ty:tys, cns <> cns')
+      return (ty:tys, cns `compConstr` cns')
     appListNil' = return ([], emptyConstr)
     seq' mt1 mt2 = do
       (_, cns1) <- mt1
       (ty, cns2) <- mt2
-      return (ty, cns2 <> cns1)
+      return (ty, cns2 `compConstr` cns1)
     package' name mt = withPackage (const name) mt
     buildTypeSchema (ty, cns) = do
       cns' <- unifyUnsolvedConstr cns
