@@ -9,7 +9,7 @@ module TypedPerl.Types (
   PerlBinOp (..),
   PerlAST (..),
   showPerlVars, showPerlAST,
-  showPerlTypeVars, showPerlType
+  showPerlTypeVars, showPerlType, showPerlRecs
   ) where
 import qualified Data.Map as M
 

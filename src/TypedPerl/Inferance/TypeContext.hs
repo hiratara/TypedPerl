@@ -7,10 +7,12 @@ module TypedPerl.Inferance.TypeContext (
   , freshName, freshType, freshRec
   , withContext, withPackage
   , lookupContext
+  , showContext
   ) where
 import Control.Monad
 import Control.Monad.State.Class
 import qualified Data.Map as M
+import Data.List
 import Data.Monoid
 import qualified Data.Set as S
 import TypedPerl.Types
@@ -134,3 +136,28 @@ lookupContext v ctx = mplus `liftM` lookup1 `ap` lookup2
       cv <- varWithNamespace v
       return (lookup cv ctx)
     lookup2 = return (lookup (PerlCVar (NsGlobal "CORE") v) ctx)
+
+showVarSet :: VarSet -> String
+showVarSet (vs, rvs) = intercalate " " (vs' ++ rvs')
+  where
+    vs' = map showPerlTypeVars (S.toList vs)
+    rvs' = S.toList rvs
+
+nullVarSet :: VarSet -> Bool
+nullVarSet (vs, rvs) = S.null vs && S.null rvs
+
+showPerlCType :: PerlCType -> String
+showPerlCType (PerlForall vs ty)
+  | nullVarSet vs = showPerlType ty
+  | otherwise     = "∀" ++ showVarSet vs ++ "." ++ showPerlType ty
+
+showPerlCVar :: PerlCVar -> String
+showPerlCVar (PerlCVar ns cv) = case ns of
+  NsLexical -> showPerlVars cv
+  NsGlobal s -> s ++ "::" ++ showPerlVars cv
+
+showContext :: Context -> String
+showContext ctxs = "#### CONTEXT INFO\n" ++ body ++ "\n####"
+  where
+    body = intercalate ", \n" (map show' ctxs)
+    show' (cv, cty) = showPerlCVar cv ++ " := " ++ showPerlCType cty

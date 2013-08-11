@@ -3,7 +3,9 @@ module TypedPerl.Substitute (
   Substitute, SubstituteItem(..)
   , Substitutable (..)
   , emptySubst, compSubst, addSubst
+  , showSubstitute
 ) where
+import Data.List
 import qualified Data.Map as M
 import qualified Data.Set as S
 import TypedPerl.Inferance.TypeContext
@@ -133,3 +135,18 @@ singleton (SubstRecs v reco) = (M.empty, M.empty, M.singleton v reco)
 infixr 6 `addSubst`
 addSubst :: SubstituteItem -> Substitute -> Substitute
 addSubst s1 ss = singleton s1 `compSubst` (subst1 s1 ss)
+
+-- showSubstituteItem :: SubstituteItem -> String
+-- showSubstituteItem = showSubstitute . singleton
+
+showSubstitute :: Substitute -> String
+showSubstitute (tym, argm, recm) =
+  "#### Substitution\n" ++
+  showAssocs (assocTy ++ assocArg ++ assocRec)
+  ++ "\n####"
+  where
+    assocTy = map (cross showPerlTypeVars showPerlType) (M.assocs tym)
+    assocArg = map (cross id showPerlRecs) (M.assocs argm)
+    assocRec = map (cross id showPerlRecs) (M.assocs recm)
+    cross f g (x, y) = (f x, g y)
+    showAssocs as = intercalate "\n" (map (\(k, v) -> k ++ " <= " ++ v) as)
