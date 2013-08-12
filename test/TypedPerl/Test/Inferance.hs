@@ -137,9 +137,8 @@ tests = TestList [
       let ty = inferCodeRight "1; package Foo; sub f { $_[0]->{n} } (bless {n => 10}, \"Foo\")->f()"
       assertEqual "method calls" (TypeBuiltin TypeInt) ty
   )
-  -- TODO: Our inferance of method calling might be broken.
-  -- , (TestCase $ do
-  --     let ty = inferCodeRight "1; package Foo; sub f { $_[0]->g() } sub g { $_[0]->{n} } (bless {n => 10}, \"Foo\")->f()"
-  --     assertEqual "method calls" (TypeBuiltin TypeInt) ty
-  -- )
+  , (TestCase $ do
+      let ty = inferCodeRight "1; package Foo; sub f { $_[0]->g() } sub g { $_[0]->{n} } (bless {n => 10}, \"Foo\")->f()"
+      assertEqual "nested method calls" (TypeBuiltin TypeInt) ty
+  )
   ]

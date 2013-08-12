@@ -26,7 +26,7 @@ unify :: (MonadState TypeContext m, MonadError TypeError m) =>
          Constraint -> m Substitute
 unify [] = return (emptySubst)
 unify ((EqType type1 type2):cs) = case (type1, type2) of
-  (t1, t2) | t1 == t2 -> unify cs
+  (t1, t2) | t1 `eqType` t2 -> unify cs
   (TypeVar v, TypeUnknown) -> do
     let s = SubstType v TypeUnknown
     (`compSubst` s `addSubst` emptySubst) `liftM` unify (subst1 s cs)
@@ -49,13 +49,6 @@ unify ((EqType type1 type2):cs) = case (type1, type2) of
     unify ((EqType t2 t1):cs)
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
     unify ((EqType t1 t2):(EqType t1' t2'):cs)
-  (TypeFix v1 ty1, TypeFix v2 ty2)
-    | v1 /= v2 -> do
-      v' <- TypeNamed `liftM` freshName
-      -- Normalize bound type variable
-      let x1 = TypeFix v' (subst1 (SubstType v1 (TypeVar v')) ty1)
-      let x2 = TypeFix v' (subst1 (SubstType v2 (TypeVar v')) ty2)
-      unify (EqType x1 x2:cs)
   (TypeFix v (TypeVar v'), _)
     | v == v' -> error ("[BUG]Can't extract a recursive type" ++ show v)
   (ty1@(TypeFix v ty1'), ty2) -> do
@@ -131,3 +124,32 @@ elemTypeType ty v = (getAny . foldType mapper) ty
       }
     fix' v' ty' | v == v' = error ("[BUG]Duplicated " ++ show v')
                 | otherwise = fix monoidMapper v' ty'
+
+eqType :: PerlType -> PerlType -> Bool
+eqType (TypeVar v1) (TypeVar v2) = v1 == v2
+eqType TypeUnknown TypeUnknown = True
+eqType (TypeBuiltin b1) (TypeBuiltin b2) = b1 == b2
+eqType (TypeArg a1) (TypeArg a2) = a1 `eqRec` a2
+eqType (TypeObj m1 o1) (TypeObj m2 o2) = m1 `eqRec` m2 && o1 `eqRec` o2
+eqType (TypeArrow ty1 ty1') (TypeArrow ty2 ty2') =
+  ty1 `eqType` ty2 && ty1' `eqType` ty2'
+eqType (TypeFix v1 ty1) (TypeFix v2 ty2)
+  | v1 == v2 = eqType ty1 ty2
+  | otherwise =
+    -- [XXX] I had better use fresh variable instead of v1
+    let ty2' = subst1 (SubstType v2 (TypeVar v1)) ty2
+    in eqType ty1 ty2'
+eqType _ _ = False
+
+eqRec :: Ord k => PerlRecs k -> PerlRecs k -> Bool
+eqRec (RecEmpty m1) (RecEmpty m2) = m1 `eqTypeMap` m2
+eqRec (RecNamed s1 m1) (RecNamed s2 m2) = s1 == s2 && m1 `eqTypeMap` m2
+eqRec _ _ = False
+
+eqTypeMap :: Ord k => M.Map k PerlType -> M.Map k PerlType -> Bool
+eqTypeMap m1 m2 =
+  M.null (M.difference m1 m2) && isAllTypesSame
+  where
+    isAllTypesSame = foldr (&&) True
+                     (map isSame (zip (M.toAscList m1) (M.toAscList m2)))
+    isSame ((k1, ty1), (k2, ty2)) = k1 == k2 && ty1 `eqType` ty2
