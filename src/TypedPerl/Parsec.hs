@@ -1,6 +1,7 @@
 module TypedPerl.Parsec where
 import Data.Char
 import qualified Data.Map as M
+import Data.List
 import Text.Parsec
 import TypedPerl.Builtins
 import TypedPerl.Types
@@ -235,9 +236,13 @@ perlSymbol = do
 
 perlClassname :: PerlParserBase String
 perlClassname = do
-  c <- oneOf uAlphabetChars
-  cs <- many (oneOf symbolChars)
-  return (c:cs)
+  first <- parts
+  lefts <- many (do {string "::"; parts})
+  return (intercalate "::" (first : lefts))
+  where parts = do
+          c <- oneOf (uAlphabetChars ++ alphabetChars)
+          cs <- many (oneOf symbolChars)
+          return (c:cs)
 
 parserVars :: PerlParser
 parserVars = do

@@ -53,4 +53,15 @@ tests = TestList [
                   ))
                   t
   )
+  , (TestCase $ do
+      let Right t = parsePerl "1; package Hoge::Foo; 1; package main; 2;"
+      assertEqual "package"
+                  (PerlSeq
+                    (PerlInt 1)
+                  (PerlSeq
+                    (PerlPackage "Hoge::Foo" (PerlInt 1))
+                    (PerlPackage "main"  (PerlInt 2))
+                  ))
+                  t
+  )
   ]
