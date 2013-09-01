@@ -35,7 +35,7 @@ parserTopSequences = do
   let ts' = case lastTerm of
         Just t -> ts ++ (t:[])
         _      -> ts
-  return (if null ts' then error "NO SENTENCES" else foldr1 PerlSeq ts')
+  if null ts' then parserFail "NO SENTENCES" else return (foldr1 PerlSeq ts')
   where
     eol = many1 (char ';' >> spaces) >> return ()
 
