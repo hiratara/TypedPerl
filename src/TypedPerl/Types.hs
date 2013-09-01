@@ -11,6 +11,7 @@ module TypedPerl.Types (
   showPerlVars, showPerlAST,
   showPerlTypeVars, showPerlType, showPerlRecs
   ) where
+import Data.List
 import qualified Data.Map as M
 
 data PerlTypeVars =
@@ -75,8 +76,8 @@ showPerlTypeVars (TypeNamed x) = x
 showRecsMap :: Show k => M.Map k PerlType -> String
 showRecsMap m = "{" ++ content ++ "}"
   where
-    content = concat $ map (\(k, v) -> show k ++ ":" ++ showPerlType v)
-                           (M.assocs m)
+    content = intercalate ", " $ map (\(k, v) -> show k ++ ":" ++ showPerlType v)
+                                 (M.assocs m)
 
 showPerlRecs :: Show k => PerlRecs k -> String
 showPerlRecs (RecEmpty m) = showRecsMap m -- TODO
