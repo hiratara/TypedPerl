@@ -32,9 +32,7 @@ parserTopSequences = do
   ts <- (many . try) (try (do {x <- parserSentence; eol; return x}) <|>
                            do {x <- parserSubDeclare; optional eol; return x})
   lastTerm <- optionMaybe (try parserSentence <|> parserSubDeclare)
-  let ts' = case lastTerm of
-        Just t -> ts ++ (t:[])
-        _      -> ts
+  let ts' = maybe ts (\t -> ts ++ [t]) lastTerm
   if null ts' then parserFail "NO SENTENCES" else return (foldr1 PerlSeq ts')
   where
     eol = many1 (char ';' >> spaces) >> return ()
