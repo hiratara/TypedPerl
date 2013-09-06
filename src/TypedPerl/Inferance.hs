@@ -1,6 +1,6 @@
 {-# LANGUAGE FlexibleContexts, TupleSections #-}
 module TypedPerl.Inferance (
-  infer
+  infer, inferTypeAndContext
   ) where
 import TypedPerl.Inferance.Constraint
 import TypedPerl.Inferance.TypeContext
@@ -158,7 +158,10 @@ lookupMethods ns = do
     byNamespace _ _ = []
 
 infer :: PerlAST -> Either TypeError PerlType
-infer t = evalStateT inferMain initialTypeContext
+infer = fmap fst . inferTypeAndContext
+
+inferTypeAndContext :: PerlAST -> Either TypeError (PerlType, TypeContext)
+inferTypeAndContext t = runStateT inferMain initialTypeContext
   where
     inferMain = do
       (t', cns) <- buildConstraint t
