@@ -58,7 +58,10 @@ data SourceInfo = SourceInfo {infoSourceName :: String, infoLine :: Int, infoCol
               deriving (Show, Eq)
 
 data PerlAST = PerlAST {astInfo :: SourceInfo, astAst :: PerlAST'}
-             deriving (Show, Eq)
+             deriving (Show)
+
+instance Eq PerlAST where
+  x1 == x2 = (astAst x1) == (astAst x2) -- ignore source info
 
 data PerlAST' =
   PerlDeclare PerlVars PerlAST
