@@ -7,29 +7,33 @@ import TypedPerl.Types
 import qualified Data.Map as M
 import Prelude hiding (seq);
 
-data PerlASTMapper a b c = PerlASTMapper {
-  declare :: PerlVars -> a -> a
+data PerlASTMapper x y a b c = PerlASTMapper {
+  ast :: y -> a -> x
+  , info :: String -> Int -> Int -> y
+  , declare :: PerlVars -> x -> a
   , int :: Integer -> a
   , str :: String -> a
   , var :: PerlVars -> a
-  , implicitItem :: a -> Int -> a
-  , op :: PerlBinOp -> a -> a -> a
+  , implicitItem :: x -> Int -> a
+  , op :: PerlBinOp -> x -> x -> a
   , obj :: b -> String -> a
-  , objMapItem :: String -> a -> b -> b
+  , objMapItem :: String -> x -> b -> b
   , objMapNil :: b
-  , objItem :: a -> String -> a
-  , objMeth :: a -> String -> c -> a
-  , abstract :: a -> a
-  , app :: a -> c -> a
-  , appListCons :: a -> c -> c
+  , objItem :: x -> String -> a
+  , objMeth :: x -> String -> c -> a
+  , abstract :: x -> a
+  , app :: x -> c -> a
+  , appListCons :: x -> c -> c
   , appListNil :: c
-  , seq :: a -> a -> a
-  , package :: String -> a -> a
+  , seq :: x -> x -> a
+  , package :: String -> x -> a
   }
 
-nopMapper :: PerlASTMapper PerlAST (M.Map String PerlAST) [PerlAST]
+nopMapper :: PerlASTMapper PerlAST PerlInfo PerlAST' (M.Map String PerlAST) [PerlAST]
 nopMapper = PerlASTMapper {
-  declare = PerlDeclare
+  ast = PerlAST
+  , info = PerlInfo
+  , declare = PerlDeclare
   , int = PerlInt
   , str = PerlStr
   , var = PerlVar
@@ -48,25 +52,31 @@ nopMapper = PerlASTMapper {
   , package = PerlPackage
   }
 
-foldAST :: PerlASTMapper a b c -> PerlAST -> a
-foldAST m (PerlDeclare v ast) = declare m v (foldAST m ast)
-foldAST m (PerlInt n) = int m n
-foldAST m (PerlStr s) = str m s
-foldAST m (PerlVar v) = var m v
-foldAST m (PerlImplicitItem ast n) = implicitItem m (foldAST m ast) n
-foldAST m (PerlOp o ast1 ast2) = op m o (foldAST m ast1) (foldAST m ast2)
-foldAST m (PerlObj ma s) = obj m (foldObjMap m ma) s
-foldAST m (PerlObjItem ast1 s) = objItem m (foldAST m ast1) s
-foldAST m (PerlObjMeth ast s asts) = objMeth m (foldAST m ast) s
-                                               (foldAppList m asts)
-foldAST m (PerlAbstract ast) = abstract m (foldAST m ast)
-foldAST m (PerlApp ast asts) = app m (foldAST m ast) (foldAppList m asts)
-foldAST m (PerlSeq ast1 ast2) = seq m (foldAST m ast1) (foldAST m ast2)
-foldAST m (PerlPackage name ast) = package m name (foldAST m ast)
+foldAST :: PerlASTMapper x y a b c -> PerlAST -> x
+foldAST m (PerlAST anInfo ast') = ast m (foldInfo m anInfo) (foldAST' m ast')
 
-foldObjMap :: PerlASTMapper a b c -> M.Map String PerlAST -> b
+foldInfo :: PerlASTMapper x y a b c -> PerlInfo -> y
+foldInfo m (PerlInfo n l c) = info m n l c
+
+foldAST' :: PerlASTMapper x y a b c -> PerlAST' -> a
+foldAST' m (PerlDeclare v anAst) = declare m v (foldAST m anAst)
+foldAST' m (PerlInt n) = int m n
+foldAST' m (PerlStr s) = str m s
+foldAST' m (PerlVar v) = var m v
+foldAST' m (PerlImplicitItem anAst n) = implicitItem m (foldAST m anAst) n
+foldAST' m (PerlOp o ast1 ast2) = op m o (foldAST m ast1) (foldAST m ast2)
+foldAST' m (PerlObj ma s) = obj m (foldObjMap m ma) s
+foldAST' m (PerlObjItem ast1 s) = objItem m (foldAST m ast1) s
+foldAST' m (PerlObjMeth anAst s asts) = objMeth m (foldAST m anAst) s
+                                               (foldAppList m asts)
+foldAST' m (PerlAbstract anAst) = abstract m (foldAST m anAst)
+foldAST' m (PerlApp anAst asts) = app m (foldAST m anAst) (foldAppList m asts)
+foldAST' m (PerlSeq ast1 ast2) = seq m (foldAST m ast1) (foldAST m ast2)
+foldAST' m (PerlPackage name anAst) = package m name (foldAST m anAst)
+
+foldObjMap :: PerlASTMapper x y a b c -> M.Map String PerlAST -> b
 foldObjMap m ma = M.foldWithKey (\k -> objMapItem m k . foldAST m)
                                 (objMapNil m) ma
 
-foldAppList :: PerlASTMapper a b c -> [PerlAST] -> c
+foldAppList :: PerlASTMapper x y a b c -> [PerlAST] -> c
 foldAppList m asts = foldr (appListCons m . foldAST m) (appListNil m) asts

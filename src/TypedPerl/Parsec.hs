@@ -1,4 +1,6 @@
-module TypedPerl.Parsec where
+module TypedPerl.Parsec (
+  parsePerl
+  ) where
 import Data.Char
 import qualified Data.Map as M
 import Data.List
@@ -11,13 +13,16 @@ type PerlParser = PerlParserBase PerlAST
 
 data PerlState = PerlState
 
+asAST :: PerlAST' -> PerlAST
+asAST ast' = PerlAST (PerlInfo "" 0 0) ast'
+
 parserPackages :: PerlParser
 parserPackages = do
   mainAST <- optionMaybe parserTopSequences
   asts <- many parserOnePackage
   eof
   return $ let asts' = maybe asts (: asts) mainAST
-           in foldr1 PerlSeq asts'
+           in foldr1 ((asAST .) . PerlSeq) asts'
   where
     parserOnePackage =  do
       string "package" >> space >> spaces
@@ -25,7 +30,7 @@ parserPackages = do
       spaces
       char ';' >> spaces
       ast <- parserTopSequences
-      return (PerlPackage name ast)
+      return (asAST (PerlPackage name ast))
 
 parserTopSequences :: PerlParser
 parserTopSequences = do
@@ -33,7 +38,7 @@ parserTopSequences = do
                            do {x <- parserSubDeclare; optional eol; return x})
   lastTerm <- optionMaybe (try parserSentence <|> parserSubDeclare)
   let ts' = maybe ts (\t -> ts ++ [t]) lastTerm
-  if null ts' then parserFail "NO SENTENCES" else return (foldr1 PerlSeq ts')
+  if null ts' then parserFail "NO SENTENCES" else return (foldr1 ((asAST .) . PerlSeq) ts')
   where
     eol = many1 (char ';' >> spaces) >> return ()
 
@@ -43,7 +48,7 @@ parserSequences = do
   let next = do
         eol
         t2 <- parserSequences
-        return (PerlSeq t1 t2)
+        return (asAST (PerlSeq t1 t2))
   try next <|> (optional eol >> return t1)
   where
     eol = (char ';' >> spaces) <|> eof
@@ -137,16 +142,16 @@ precedence2 = do
             char '{' >> spaces
             name <- perlSymbol
             char '}' >> spaces
-            precedence2' (PerlObjItem callie name)
+            precedence2' (asAST (PerlObjItem callie name))
           ) <|> (
           do
             name <- perlSymbol
             ts <- parserArgs
-            precedence2' (PerlObjMeth callie name ts)
+            precedence2' (asAST (PerlObjMeth callie name ts))
           ) <|> (
           do
             ts <- parserArgs
-            precedence2' (PerlApp callie ts)
+            precedence2' (asAST (PerlApp callie ts))
           )
       ) <|> return callie
 
@@ -167,7 +172,7 @@ precedence1 = do
       spaces
       char ',' >> spaces
       name <- between (char '"') (char '"') perlClassname
-      return (PerlObj m name)
+      return (asAST (PerlObj m name))
     parserHashRef = between (char '{') (char '}') content
     content = M.fromList `fmap` (pair `sepBy` (char ',' >> spaces))
     pair = do
@@ -190,7 +195,7 @@ parserBinOp operandParser symbols = do
         spaces
         t2 <- operandParser
         spaces
-        parserBinOp' (PerlOp (lookupOp builtinBinops op) t1 t2)
+        parserBinOp' (asAST (PerlOp (lookupOp builtinBinops op) t1 t2))
       ) <|> return t1
       where
         lookupOp [] _ = error "[BUG]but builtin operators"
@@ -201,18 +206,18 @@ parserBinOp operandParser symbols = do
 parserMy :: PerlParser
 parserMy = do
   string "my" >> spaces
-  (PerlVar v) <- parserVars
+  (PerlVar v) <- astAst `fmap` parserVars
   spaces
   char '=' >> spaces
   t <- parserTerm
-  return (PerlDeclare v t)
+  return (asAST (PerlDeclare v t))
 
 parserImplicitVar :: PerlParser
 parserImplicitVar = do
   string "$_[" >> spaces
   c <- many1 digit
   spaces >> char ']'
-  return (PerlImplicitItem (PerlVar VarSubImplicit) (read c))
+  return (asAST (PerlImplicitItem (asAST (PerlVar VarSubImplicit)) (read c)))
 
 uAlphabetChars :: String
 uAlphabetChars = '_' : [toEnum (fromEnum 'A' + n) | n <- [0 .. 25]]
@@ -246,16 +251,16 @@ parserVars :: PerlParser
 parserVars = do
   char '$'
   sym <- perlSymbol
-  return (PerlVar (VarNamed sym))
+  return (asAST (PerlVar (VarNamed sym)))
 
 parserInt :: PerlParser
 parserInt = do
   digits <- many1 digit
   let n = foldl (\x d -> 10 * x + toInteger (digitToInt d)) 0 digits
-  return (PerlInt n)
+  return (asAST (PerlInt n))
 
 parserStr :: PerlParser
-parserStr = PerlStr `fmap` parserStr'
+parserStr = (asAST . PerlStr) `fmap` parserStr'
 
 parserStr' :: PerlParserBase String
 parserStr'  = do
@@ -278,19 +283,19 @@ parserSubDeclare = do
   spaces
   content <- parserBlock
   spaces
-  return (PerlDeclare (VarSub sym) (PerlAbstract content))
+  return (asAST (PerlDeclare (VarSub sym) (asAST (PerlAbstract content))))
 
 parserSub :: PerlParser
 parserSub = do
   string "sub" >> spaces
-  PerlAbstract `fmap` parserBlock
+  (asAST . PerlAbstract) `fmap` parserBlock
 
 parserCallSub :: PerlParser
 parserCallSub = do
   sym <- perlSymbol
   spaces
   ts <- parserArgs
-  return (PerlApp (PerlVar (VarSub sym)) ts)
+  return (asAST (PerlApp (asAST (PerlVar (VarSub sym))) ts))
 
 parserArgs :: PerlParserBase [PerlAST]
 parserArgs = do

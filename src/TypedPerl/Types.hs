@@ -7,7 +7,7 @@ module TypedPerl.Types (
   PerlNamespace (..),
   PerlVars (..),
   PerlBinOp (..),
-  PerlAST (..),
+  PerlInfo (..), PerlAST (..), PerlAST' (..),
   showPerlVars, showPerlAST,
   showPerlTypeVars, showPerlType, showPerlRecs
   ) where
@@ -54,7 +54,13 @@ data PerlBinOp = PerlBinOp {
   , returnType :: PerlType
 } deriving (Show, Eq)
 
-data PerlAST =
+data PerlInfo = PerlInfo {infoSourceName :: String, infoLine :: Int, infoColumn :: Int}
+              deriving (Show, Eq)
+
+data PerlAST = PerlAST {astInfo :: PerlInfo, astAst :: PerlAST'}
+             deriving (Show, Eq)
+
+data PerlAST' =
   PerlDeclare PerlVars PerlAST
   | PerlInt Integer
   | PerlStr String
@@ -104,28 +110,31 @@ showPerlVars (VarNamed x) = '$' : x
 showPerlVars (VarSub x) = '&' : x
 
 showPerlAST :: PerlAST -> String
-showPerlAST (PerlInt n) = show n
-showPerlAST (PerlStr x) = show x -- This is, though, Haskell's literal
-showPerlAST (PerlVar t) = showPerlVars t
-showPerlAST (PerlImplicitItem _ n) = "$_[" ++ show n ++ "]"
-showPerlAST (PerlDeclare v t) = "my " ++ (showPerlVars v) ++
+showPerlAST = showPerlAST' . astAst
+
+showPerlAST' :: PerlAST' -> String
+showPerlAST' (PerlInt n) = show n
+showPerlAST' (PerlStr x) = show x -- This is, though, Haskell's literal
+showPerlAST' (PerlVar t) = showPerlVars t
+showPerlAST' (PerlImplicitItem _ n) = "$_[" ++ show n ++ "]"
+showPerlAST' (PerlDeclare v t) = "my " ++ (showPerlVars v) ++
                                    " = (" ++ showPerlAST t ++ ")"
-showPerlAST (PerlOp op t1 t2) = "(" ++ showPerlAST t1 ++ " "
+showPerlAST' (PerlOp op t1 t2) = "(" ++ showPerlAST t1 ++ " "
                                 ++ symbol op ++ " " ++
                                 showPerlAST t2 ++ ")"
-showPerlAST (PerlObj m x) = "bless " ++ hash ++ ", \"" ++ x ++ "\""
+showPerlAST' (PerlObj m x) = "bless " ++ hash ++ ", \"" ++ x ++ "\""
   where
     hash = "{" ++ hashContent ++ "}"
     hashContent = concat $ map (\(k, v) -> k ++ " => " ++ showPerlAST v)
                                (M.assocs m)
-showPerlAST (PerlObjItem t x) = "(" ++ showPerlAST t ++ ")->{" ++ x ++ "}"
-showPerlAST (PerlObjMeth t x ts) = "(" ++ showPerlAST t ++ ")->" ++ x ++
+showPerlAST' (PerlObjItem t x) = "(" ++ showPerlAST t ++ ")->{" ++ x ++ "}"
+showPerlAST' (PerlObjMeth t x ts) = "(" ++ showPerlAST t ++ ")->" ++ x ++
                                    "(" ++ showTerms ts ++ ")"
-showPerlAST (PerlAbstract t) = "sub {" ++ " " ++ showPerlAST t ++ " }"
-showPerlAST (PerlApp t1 ts) =
+showPerlAST' (PerlAbstract t) = "sub {" ++ " " ++ showPerlAST t ++ " }"
+showPerlAST' (PerlApp t1 ts) =
   "(" ++ showPerlAST t1 ++ ")->(" ++ showTerms ts ++ ")"
-showPerlAST (PerlSeq t1 t2) = showPerlAST t1 ++ "; " ++ showPerlAST t2
-showPerlAST (PerlPackage name t) = "package " ++ name ++ ";\n" ++ showPerlAST t;
+showPerlAST' (PerlSeq t1 t2) = showPerlAST t1 ++ "; " ++ showPerlAST t2
+showPerlAST' (PerlPackage name t) = "package " ++ name ++ ";\n" ++ showPerlAST t;
 
 showTerms :: [PerlAST] -> String
 showTerms ts = concatMap (\(t, c) -> c ++ showPerlAST t)

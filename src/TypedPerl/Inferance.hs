@@ -48,10 +48,14 @@ buildRecordConstraint3 mast k newconst newrectype = do
 
 constrMapper :: (MonadState TypeContext m, MonadError TypeError m) =>
                 PerlASTMapper (m (PerlType, UnsolvedConstr))
+                              (m ((), UnsolvedConstr))
+                              (m (PerlType, UnsolvedConstr))
                               (m (M.Map String PerlType, UnsolvedConstr))
                               (m ([PerlType], UnsolvedConstr))
 constrMapper = PerlASTMapper {
-  declare = declare'
+  ast = ast'
+  , info = info'
+  , declare = declare'
   , int = (const . return) (TypeBuiltin TypeInt, emptyConstr)
   , str = (const . return) (TypeBuiltin TypeStr, emptyConstr)
   , TypedPerl.PerlAST.var = var'
@@ -70,6 +74,8 @@ constrMapper = PerlASTMapper {
   , package = package'
   }
   where
+    ast' = flip const
+    info' = (const . const . const . return) ((), emptyConstr)
     declare' v mt = do
       (ty, cns) <- mt
       cv <- varWithNamespace v
