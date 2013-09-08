@@ -7,7 +7,7 @@ module TypedPerl.Types (
   PerlNamespace (..),
   PerlVars (..),
   PerlBinOp (..),
-  PerlInfo (..), PerlAST (..), PerlAST' (..),
+  SourceInfo (..), PerlAST (..), PerlAST' (..),
   showPerlVars, showPerlAST,
   showPerlTypeVars, showPerlType, showPerlRecs
   ) where
@@ -54,10 +54,10 @@ data PerlBinOp = PerlBinOp {
   , returnType :: PerlType
 } deriving (Show, Eq)
 
-data PerlInfo = PerlInfo {infoSourceName :: String, infoLine :: Int, infoColumn :: Int}
+data SourceInfo = SourceInfo {infoSourceName :: String, infoLine :: Int, infoColumn :: Int}
               deriving (Show, Eq)
 
-data PerlAST = PerlAST {astInfo :: PerlInfo, astAst :: PerlAST'}
+data PerlAST = PerlAST {astInfo :: SourceInfo, astAst :: PerlAST'}
              deriving (Show, Eq)
 
 data PerlAST' =

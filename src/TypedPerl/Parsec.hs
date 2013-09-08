@@ -14,7 +14,7 @@ type PerlParser = PerlParserBase PerlAST
 data PerlState = PerlState
 
 asAST :: PerlAST' -> PerlAST
-asAST ast' = PerlAST (PerlInfo "" 0 0) ast'
+asAST ast' = PerlAST (SourceInfo "" 0 0) ast'
 
 parserPackages :: PerlParser
 parserPackages = do

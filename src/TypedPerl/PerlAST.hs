@@ -29,10 +29,10 @@ data PerlASTMapper x y a b c = PerlASTMapper {
   , package :: String -> x -> a
   }
 
-nopMapper :: PerlASTMapper PerlAST PerlInfo PerlAST' (M.Map String PerlAST) [PerlAST]
+nopMapper :: PerlASTMapper PerlAST SourceInfo PerlAST' (M.Map String PerlAST) [PerlAST]
 nopMapper = PerlASTMapper {
   ast = PerlAST
-  , info = PerlInfo
+  , info = SourceInfo
   , declare = PerlDeclare
   , int = PerlInt
   , str = PerlStr
@@ -55,8 +55,8 @@ nopMapper = PerlASTMapper {
 foldAST :: PerlASTMapper x y a b c -> PerlAST -> x
 foldAST m (PerlAST anInfo ast') = ast m (foldInfo m anInfo) (foldAST' m ast')
 
-foldInfo :: PerlASTMapper x y a b c -> PerlInfo -> y
-foldInfo m (PerlInfo n l c) = info m n l c
+foldInfo :: PerlASTMapper x y a b c -> SourceInfo -> y
+foldInfo m (SourceInfo n l c) = info m n l c
 
 foldAST' :: PerlASTMapper x y a b c -> PerlAST' -> a
 foldAST' m (PerlDeclare v anAst) = declare m v (foldAST m anAst)

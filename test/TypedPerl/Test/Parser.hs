@@ -7,7 +7,7 @@ import TypedPerl.Parsec
 import TypedPerl.Types
 
 asAST :: PerlAST' -> PerlAST
-asAST ast' = PerlAST (PerlInfo "" 0 0) ast'
+asAST ast' = PerlAST (SourceInfo "" 0 0) ast'
 
 tPerlDeclare = (asAST .) . PerlDeclare
 tPerlInt = asAST . PerlInt
