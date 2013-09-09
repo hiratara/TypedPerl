@@ -169,7 +169,7 @@ precedence1 = do
   ast <- parserInt <|> parserStr <|>
          between (char '(') (char ')') parserTerm <|>
          try parserCallSub <|>
-         try parserImplicitVar <|> parserVars <|>
+         try parserImplicitVar <|> (PerlVar `fmap` parserVars >>= asAST) <|>
          parserSub <|> -- Not specified in perlop.pod
          parserObj     -- Not specified in perlop.pod
   spaces
@@ -215,7 +215,7 @@ parserBinOp operandParser symbols = do
 parserMy :: PerlParser
 parserMy = do
   string "my" >> spaces
-  (PerlVar v) <- astAst `fmap` parserVars
+  v <- parserVars
   spaces
   char '=' >> spaces
   t <- parserTerm
@@ -257,11 +257,11 @@ perlClassname = do
           cs <- many (oneOf symbolChars)
           return (c:cs)
 
-parserVars :: PerlParser
+parserVars :: PerlParserBase PerlVars
 parserVars = do
   char '$'
   sym <- perlSymbol
-  asAST (PerlVar (VarNamed sym))
+  return (VarNamed sym)
 
 parserInt :: PerlParser
 parserInt = do
