@@ -16,7 +16,7 @@ import qualified Data.Map as M
 
 buildConstraint :: (MonadState TypeContext m, MonadError TypeError m) =>
                     PerlAST -> m (PerlType, UnsolvedConstr)
-buildConstraint ast = foldAST constrMapper ast
+buildConstraint anAst = foldAST constrMapper anAst
 
 buildRecordConstraint :: (Ord k
                           , MonadState TypeContext m
@@ -90,7 +90,7 @@ constrMapper = PerlASTMapper {
       case cty of
         Just ty' -> liftM (, emptyConstr) (extractCType ty')
         _ -> throwError ("Undefined variable " ++ show v)
-    implicitItem' ast n = buildRecordConstraint ast n EqArgs TypeArg
+    implicitItem' anAst n = buildRecordConstraint anAst n EqArgs TypeArg
     op' o mt1 mt2 = do
       (ty1, cns1) <- mt1
       (ty2, cns2) <- mt2
