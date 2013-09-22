@@ -16,66 +16,69 @@ import TypedPerl.Types
 import TypedPerl.Utils
 import qualified Data.Map as M
 
-unifyUnsolvedConstr  :: (MonadState TypeContext m, MonadError TypeError m) =>
-              UnsolvedConstr -> m UnsolvedConstr
-unifyUnsolvedConstr (c, s) = do
-  s' <- unify (subst s c)
+unifyUnsolvedConstr :: (MonadState TypeContext m, MonadError TypeError m) =>
+                       SourceInfo -> UnsolvedConstr -> m UnsolvedConstr
+unifyUnsolvedConstr i (c, s) = do
+  s' <- unify i (subst s c)
   return ([], (compSubst s' s))
 
 unify :: (MonadState TypeContext m, MonadError TypeError m) =>
-         Constraint -> m Substitute
-unify [] = return (emptySubst)
-unify ((EqType type1 type2):cs) = case (type1, type2) of
-  (t1, t2) | t1 `eqType` t2 -> unify cs
+         SourceInfo -> Constraint -> m Substitute
+unify _ [] = return (emptySubst)
+unify i ((EqType type1 type2):cs) = case (type1, type2) of
+  (t1, t2) | t1 `eqType` t2 -> unify i cs
   (TypeVar v, TypeUnknown) -> do
     let s = SubstType v TypeUnknown
-    (`compSubst` s `addSubst` emptySubst) `liftM` unify (subst1 s cs)
+    (`compSubst` s `addSubst` emptySubst) `liftM` unify i (subst1 s cs)
   (TypeVar v, b@(TypeBuiltin _)) -> do
-    ss <- unify (subst1 (SubstType v b) cs)
+    ss <- unify i (subst1 (SubstType v b) cs)
     return (ss `compSubst` SubstType v b `addSubst` emptySubst)
   (TypeVar v, t)
     | t `elemTypeType` v -> do
       v' <- TypeNamed `liftM` freshName
       let ty' = subst1 (SubstType v (TypeVar v')) t -- assign the fresh name
       let s = SubstType v (TypeFix v' ty')
-      ss <- unify (subst1 s cs)
+      ss <- unify i (subst1 s cs)
       let ss' = (ss `compSubst` s `addSubst` emptySubst)
       return ss'
     | otherwise ->
       do let s = SubstType v t
-         ss <- unify (subst1 s cs)
+         ss <- unify i (subst1 s cs)
          return (ss `compSubst` s `addSubst` emptySubst)
   (t1, t2@(TypeVar _)) -> -- t1 mustn't be TypeVar (See above guard sentences)
-    unify ((EqType t2 t1):cs)
+    unify i ((EqType t2 t1):cs)
   (TypeArrow t1 t1', TypeArrow t2 t2') ->
-    unify ((EqType t1 t2):(EqType t1' t2'):cs)
+    unify i ((EqType t1 t2):(EqType t1' t2'):cs)
   (TypeFix v (TypeVar v'), _)
-    | v == v' -> error ("[BUG]Can't extract a recursive type" ++ show v)
+    | v == v' -> error ("[BUG]Can't extract a recursive type" ++ show v
+                        ++ showSourceInfo i)
   (ty1@(TypeFix v ty1'), ty2) -> do
     let ty1'' = subst1 (SubstType v ty1) ty1'
-    unify ((EqType ty1'' ty2):cs)
+    unify i ((EqType ty1'' ty2):cs)
   (ty1, ty2@(TypeFix _ _)) ->
-    unify ((EqType ty2 ty1):cs)
-  (TypeArg arg1, TypeArg arg2) -> unify ((EqArgs arg1 arg2):cs)
+    unify i ((EqType ty2 ty1):cs)
+  (TypeArg arg1, TypeArg arg2) -> unify i ((EqArgs arg1 arg2):cs)
   (TypeObj fi1 me1, TypeObj fi2 me2) ->
-    unify ((EqRecs me1 me2):(EqRecs fi1 fi2):cs)
+    unify i ((EqRecs me1 me2):(EqRecs fi1 fi2):cs)
   (t1, t2) -> throwError (
-                "Couldn't find answer:" ++ show t1 ++ "==" ++ show t2)
-unify ((EqArgs a1 a2):cs) = unifyRecs a1 a2 cs EqArgs SubstArgs
-unify ((EqRecs a1 a2):cs) = unifyRecs a1 a2 cs EqRecs SubstRecs
+                "Couldn't find answer:" ++ show t1 ++ "==" ++ show t2
+                ++ showSourceInfo i)
+unify i ((EqArgs a1 a2):cs) = unifyRecs i a1 a2 cs EqArgs SubstArgs
+unify i ((EqRecs a1 a2):cs) = unifyRecs i a1 a2 cs EqRecs SubstRecs
 
 unifyRecs :: (Show k, Ord k,
               MonadState TypeContext m, MonadError TypeError m) =>
-             PerlRecs k -> PerlRecs k -> Constraint
+             SourceInfo -> PerlRecs k -> PerlRecs k -> Constraint
              -> (PerlRecs k -> PerlRecs k -> ConstraintItem)
              -> (RecsVar -> PerlRecs k -> SubstituteItem)
              -> m Substitute
-unifyRecs a1 a2 cs newconst newsubst =
+unifyRecs i a1 a2 cs newconst newsubst =
   case (a1, a2) of
   (RecEmpty m, RecEmpty m')
-    | M.null lackM && M.null lackM' -> unify (newConstraints ++ cs)
+    | M.null lackM && M.null lackM' -> unify i (newConstraints ++ cs)
     | otherwise -> throwError ("Don't match rows of const arguments:"
-                               ++ show m ++ "," ++ show m')
+                               ++ show m ++ "," ++ show m'
+                               ++ showSourceInfo i)
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
   (RecNamed s m, RecEmpty m')
@@ -83,16 +86,17 @@ unifyRecs a1 a2 cs newconst newsubst =
        let substs = newsubst s (RecEmpty lackM)
            constr = newConstraints ++ cs
            constr' = subst1 substs constr
-       in do substs' <- unify constr'
+       in do substs' <- unify i constr'
              return (substs' `compSubst` substs `addSubst` emptySubst)
     | otherwise -> throwError (
-                     "Oops, " ++ show m' ++ " has other keys:" ++ show m)
+                     "Oops, " ++ show m' ++ " has other keys:" ++ show m
+                     ++ showSourceInfo i)
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'
-  (RecEmpty _, RecNamed _ _) -> unify ((newconst a2 a1):cs)
+  (RecEmpty _, RecNamed _ _) -> unify i ((newconst a2 a1):cs)
   (RecNamed s m, RecNamed s' m')
     -- Should I check if m or m' is empty?
-    | s == s' -> unify (newconst (RecEmpty m) (RecEmpty m'):cs)
+    | s == s' -> unify i (newconst (RecEmpty m) (RecEmpty m'):cs)
     | otherwise -> do
       newRec <- freshRec
       let substs =
@@ -101,7 +105,7 @@ unifyRecs a1 a2 cs newconst newsubst =
             `addSubst` emptySubst
       let constr = newConstraints ++ cs
       let constr' = subst substs constr
-      substs' <- unify constr'
+      substs' <- unify i constr'
       return (substs' `compSubst` substs)
     where
       (newConstraints, lackM, lackM') = typesToConstr m m'

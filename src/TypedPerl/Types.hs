@@ -10,6 +10,7 @@ module TypedPerl.Types (
   SourceInfo (..), PerlAST (..), PerlAST' (..),
   showPerlVars, showPerlAST,
   showPerlTypeVars, showPerlType, showPerlRecs
+  , showSourceInfo
   ) where
 import Data.List
 import qualified Data.Map as M
@@ -142,3 +143,7 @@ showPerlAST' (PerlPackage name t) = "package " ++ name ++ ";\n" ++ showPerlAST t
 showTerms :: [PerlAST] -> String
 showTerms ts = concatMap (\(t, c) -> c ++ showPerlAST t)
                          (zip ts ("":repeat ", "))
+
+showSourceInfo :: SourceInfo -> String
+showSourceInfo (SourceInfo n l c) = "line " ++ show l ++ ", col " ++ show c ++
+                                    " in " ++ n

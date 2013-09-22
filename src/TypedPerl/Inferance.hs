@@ -70,10 +70,10 @@ constrMapper = PerlASTMapper {
   , package = package'
   }
   where
-    declare' _ v mt = do
+    declare' i v mt = do
       (ty, cns) <- mt
       cv <- varWithNamespace v
-      (cTy, cns') <- buildTypeSchema (ty, cns)
+      (cTy, cns') <- buildTypeSchema i (ty, cns)
       modify (\tc -> tc {context = (cv, cTy):context tc})
       case v of
         -- subroutine definition has no meaningful types
@@ -137,8 +137,8 @@ constrMapper = PerlASTMapper {
       (ty, cns2) <- mt2
       return (ty, cns2 `compConstr` cns1)
     package' _ name mt = withPackage (const name) mt
-    buildTypeSchema (ty, cns) = do
-      cns' <- unifyUnsolvedConstr cns
+    buildTypeSchema i (ty, cns) = do
+      cns' <- unifyUnsolvedConstr i cns
 
       -- Update all types by substitution
       modify (\ctx -> ctx {context = subst (snd cns') (context ctx)})
@@ -165,5 +165,6 @@ inferTypeAndContext t = runStateT inferMain initialTypeContext
   where
     inferMain = do
       (t', cns) <- buildConstraint t
-      cns' <- unifyUnsolvedConstr cns
+      cns' <- unifyUnsolvedConstr dummySource cns
       return (subst (snd cns') t')
+    dummySource = SourceInfo "" 0 0
